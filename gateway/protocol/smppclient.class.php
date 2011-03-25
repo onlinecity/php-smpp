@@ -228,7 +228,7 @@ class SmppClient
 		if ($doCsms) {
 			if (self::$sms_use_msg_payload_for_csms) {
 				$payload = new \SMPP\Tag(\SMPP\Tag::MESSAGE_PAYLOAD, $message, $msg_length);
-				return $this->submit_sm($from, $to, null, (empty($tags) ? $payload : array_merge($tags,$payload)), $dataCoding);
+				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding);
 			} else {
 				$sar_msg_ref_num = new \SMPP\Tag(\SMPP\Tag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
 				$sar_total_segments = new \SMPP\Tag(\SMPP\Tag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
