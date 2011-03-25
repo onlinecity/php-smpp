@@ -10,7 +10,7 @@ This library is targeted towards PHP 5.3, and as such uses namespaces.
 The library is divided into three parts with their own sub-namespace:
 
  - gateway\protocol - containing everything related to SMPP
- - gateway\transport - the transport components from Apache's Thrift[1]
+ - gateway\transport - the transport components from Apache's Thrift
  - gateway\workers - a multi-process example and basic components
 
 Basic usage example
