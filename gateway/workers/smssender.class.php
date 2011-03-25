@@ -149,8 +149,8 @@ class SmsSender
 			// Contruct SMPP Address objects
 			if (!ctype_digit($sms->sender)) {
 				$sender = new \SMPP\Address($sms->sender,\SMPP\TON_ALPHANUMERIC);
-			} else if ($sender < 10000) {
-				$sender = new \SMPP\Address($sms->sender,SMPP\TON_NATIONAL,SMPP\NPI_E164);
+			} else if ($sms->sender < 10000) {
+				$sender = new \SMPP\Address($sms->sender,\SMPP\TON_NATIONAL,\SMPP\NPI_E164);
 			} else {
 				$sender = new \SMPP\Address($sms->sender,\SMPP\TON_INTERNATIONAL,\SMPP\NPI_E164);
 			}

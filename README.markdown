@@ -1,16 +1,17 @@
 PHP-based SMPP client lib
 =============
 
-This is a simplified SMPP client lib for sending or receiving smses through SMPP v3.4[2].
+This is a simplified SMPP client lib for sending or receiving smses through [SMPP v3.4](http://www.smsforum.net/SMPP_v3_4_Issue1_2.zip).
 
-The socket implementation from Apache's Thrift[1] is used for the transport layer components. 
+The socket implementation from [Apache's Thrift](http://thrift.apache.org/) is used for the transport layer components. 
 
 This library is targeted towards PHP 5.3, and as such uses namespaces.
 
 The library is divided into three parts with their own sub-namespace:
- * gateway\protocol - containing everything related to SMPP
- * gateway\transport - the transport components from Apache's Thrift[1]
- * gateway\workers - a multi-process example and basic components
+
+ - gateway\protocol - containing everything related to SMPP
+ - gateway\transport - the transport components from Apache's Thrift
+ - gateway\workers - a multi-process example and basic components
 
 Basic usage example
 -----
@@ -116,6 +117,3 @@ Then another script injects a SMS into the queue:
 	$smsrequest = new SmsRequest('H€llo world', array(4512345678), 'SMPP Test', 1337);
 	msg_send($queue, SmsRequest::TYPE, $smsrequest, true); 
 
-
-[1]: http://thrift.apache.org/
-[2]: http://www.smsforum.net/SMPP_v3_4_Issue1_2.zip
