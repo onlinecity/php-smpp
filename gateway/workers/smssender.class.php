@@ -142,13 +142,15 @@ class SmsSender
 			// Prepare message
 			if ($sms->dataCoding == \SMPP\DATA_CODING_DEFAULT) {
 				$encoded = GsmEncoder::utf8_to_gsm0338($sms->message);
+				$encSender = GsmEncoder::utf8_to_gsm0338($sms->sender);
 			} else {
 				$encoded = $message;
+				$encSender = $sms->sender;
 			}
 			
 			// Contruct SMPP Address objects
 			if (!ctype_digit($sms->sender)) {
-				$sender = new \SMPP\Address($sms->sender,\SMPP\TON_ALPHANUMERIC);
+				$sender = new \SMPP\Address($encSender,\SMPP\TON_ALPHANUMERIC);
 			} else if ($sms->sender < 10000) {
 				$sender = new \SMPP\Address($sms->sender,\SMPP\TON_NATIONAL,\SMPP\NPI_E164);
 			} else {
