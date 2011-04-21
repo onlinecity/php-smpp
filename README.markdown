@@ -50,7 +50,7 @@ To send a SMS you can do:
 	// Cleanup
 	$smpp->close();
 	unset($smpp);
-``` php	
+```
 	
 To receive a SMS:
 
