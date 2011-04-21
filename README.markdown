@@ -18,6 +18,7 @@ Basic usage example
 
 To send a SMS you can do:
 
+``` php
 	<?php
 	require_once 'autoload.php';
 	
@@ -49,10 +50,11 @@ To send a SMS you can do:
 	// Cleanup
 	$smpp->close();
 	unset($smpp);
-	
+``` php	
 	
 To receive a SMS:
-	
+
+``` php
 	<?php
 	require_once 'autoload.php';
 
@@ -79,7 +81,8 @@ To receive a SMS:
 	// Cleanup
 	$smpp->close();
 	unset($smpp);
-	
+```
+
 Multi-process use example
 -----
 
@@ -87,6 +90,7 @@ This example will run 10 sender workers, and a single receiver for delivery rece
 
 Start all the workers by running:
 
+``` php
 	<?php
 	// File "run.php"
 	require_once 'autoload.php';
@@ -102,11 +106,13 @@ Start all the workers by running:
 	$queue = msg_get_queue(ftok(realpath('autoload.php'),'S'));
 	$factory = new \gateway\workers\SmsFactory();
 	$factory->startAll($options, $queue);
-	
+``` 
+
 The factory (and thus the script) will run indefinitively, and if a worker exits/dies, it will respawn it.
 
 Then another script injects a SMS into the queue:
 
+``` php
 	<?php
 	// File "inject.php"
 	use gateway\workers\queue\SmsRequest;
@@ -116,4 +122,4 @@ Then another script injects a SMS into the queue:
 	
 	$smsrequest = new SmsRequest('H€llo world', array(4512345678), 'SMPP Test', 1337);
 	msg_send($queue, SmsRequest::TYPE, $smsrequest, true); 
-
+```
