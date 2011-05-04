@@ -1,2 +1,2 @@
 <?php
-class TException extends \Exception { };
+class TException extends Exception { };
