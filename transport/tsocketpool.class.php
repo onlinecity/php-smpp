@@ -1,7 +1,6 @@
 <?php
-namespace gateway\transport;
-use gateway\transport\TTSocket;
-use gateway\transport\TTException;
+require_once $GLOBALS['SMPP_ROOT'].'/transport/tsocket.class.php';
+require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one

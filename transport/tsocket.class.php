@@ -1,8 +1,6 @@
 <?php
-namespace gateway\transport;
-use gateway\transport\TTransport;
-use gateway\transport\TTException;
-use gateway\transport\TTTransportException;
+require_once $GLOBALS['SMPP_ROOT'].'/transport/ttransport.class.php';
+require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one

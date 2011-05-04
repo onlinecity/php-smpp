@@ -1,6 +1,4 @@
 <?php
-namespace gateway\protocol;
-
 /**
  * Class capable of encoding GSM 03.38 default alphabet and packing octets into septets as described by GSM 03.38.
  * Based on mapping: http://www.unicode.org/Public/MAPPINGS/ETSI/GSM0338.TXT
