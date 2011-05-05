@@ -50,7 +50,7 @@ class GsmEncoder
 	public static function countGsm0338Length($utf8String)
 	{
 		$len = mb_strlen($utf8String,'utf-8');
-		$len += preg_match_all('/[\\^{}\\~€|\\[\\]]/mu',$utf8String,$m);
+		$len += preg_match_all('/[\\^{}\\\~€|\\[\\]]/mu',$utf8String,$m);
 		return $len;
 	}
 
