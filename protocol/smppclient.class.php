@@ -37,8 +37,6 @@ class SmppClient
 	public static $sms_esm_class=0x00;
 	public static $sms_protocol_id=0x00;
 	public static $sms_priority_flag=0x00;
-	public static $sms_schedule_delivery_time='';
-	public static $sms_validity_period='';
 	public static $sms_registered_delivery_flag=0x00;
 	public static $sms_replace_if_present_flag=0x00;
 	public static $sms_sm_default_msg_id=0x00;
@@ -189,9 +187,12 @@ class SmppClient
 	 * @param string $message
 	 * @param array $tags (optional)
 	 * @param integer $dataCoding (optional)
+	 * @param integer $priority (optional)
+	 * @param string $scheduleDeliveryTime (optional)
+	 * @param string $validityPeriod (optional)
 	 * @return string message id
 	 */
-	public function sendSMS(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT)
+	public function sendSMS(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		$msg_length = strlen($message);
 		
@@ -228,14 +229,14 @@ class SmppClient
 		if ($doCsms) {
 			if (self::$sms_use_msg_payload_for_csms) {
 				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
-				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding);
+				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
 			} else {
 				$sar_msg_ref_num = new SmppTag(SmppTag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
 				$sar_total_segments = new SmppTag(SmppTag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
 				$seqnum = 1;
 				foreach ($parts as $part) {
 					$sartags = array($sar_msg_ref_num, $sar_total_segments, new SmppTag(SmppTag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
-					$res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding);
+					$res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
 					$seqnum++;
 				}
 				return $res;
@@ -255,12 +256,15 @@ class SmppClient
 	 * @param string $short_message
 	 * @param array $tags
 	 * @param integer $dataCoding
+	 * @param integer $priority
+	 * @param string $scheduleDeliveryTime
+	 * @param string $validityPeriod
 	 * @return string message id
 	 */
-	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT)
+	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		// Construct PDU with mandatory fields
-		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccca1a1ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.(self::$sms_schedule_delivery_time ? 'a16x' : 'a1').(self::$sms_validity_period ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
 			self::$sms_service_type,
 			$source->ton,
 			$source->npi,
@@ -270,9 +274,9 @@ class SmppClient
 			$destination->value,
 			self::$sms_esm_class,
 			self::$sms_protocol_id,
-			self::$sms_priority_flag,
-			self::$sms_schedule_delivery_time,
-			self::$sms_validity_period,
+			$priority,
+			$scheduleDeliveryTime,
+			$validityPeriod,
 			self::$sms_registered_delivery_flag,
 			self::$sms_replace_if_present_flag,
 			$dataCoding,
