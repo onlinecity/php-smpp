@@ -41,8 +41,8 @@ $smpp->bindTransmitter("USERNAME","PASSWORD");
 // Prepare message
 $message = 'H€llo world';
 $encodedMessage = GsmEncoder::utf8_to_gsm0338($message);
-$from = new \SMPP\Address(GsmEncoder::utf8_to_gsm0338('SMPP Tést'),SMPP\TON_ALPHANUMERIC);
-$to = new \SMPP\Address(4512345678,SMPP\TON_INTERNATIONAL,SMPP\NPI_E164);
+$from = new SmppAddress(GsmEncoder::utf8_to_gsm0338('SMPP Tést'),SMPP::TON_ALPHANUMERIC);
+$to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
 
 // Send
 $smpp->sendSMS($from,$to,$encodedMessage,$tags);

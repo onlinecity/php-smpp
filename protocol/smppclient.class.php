@@ -163,7 +163,8 @@ class SmppClient
 			if ($pdu === false) return false; // TSocket v. 0.6.0+ returns false on timeout
 			//check for enquire link command
 			if($pdu->id==SMPP::ENQUIRE_LINK){
-				$this->sendPDU(SMPP::ENQUIRE_LINK_RESP, "", $pdu->sequence);
+				$response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
+				$this->sendPDU($response);
 				return false;
 			}
 			array_push($this->pdu_queue, $pdu);
@@ -264,7 +265,7 @@ class SmppClient
 	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		// Construct PDU with mandatory fields
-		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.(self::$sms_schedule_delivery_time ? 'a16x' : 'a1').(self::$sms_validity_period ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
 			self::$sms_service_type,
 			$source->ton,
 			$source->npi,
