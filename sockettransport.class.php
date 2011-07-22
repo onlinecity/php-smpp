@@ -93,7 +93,7 @@ class SocketTransport
 					}
 					// also try gethostbyname, since name could also be something else, such as "localhost" etc.
 					$ip = gethostbyname($hostname);
-					if (!in_array($ip,$ip4s)) $ip4s[] = $ip;
+					if ($ip != $hostname && !in_array($ip,$ip4s)) $ip4s[] = $ip;
 					if ($this->debug) call_user_func($this->debugHandler, "IPv4 addresses for $hostname: ".implode(', ',$ip4s));
 				}
 			}
