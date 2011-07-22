@@ -232,7 +232,7 @@ class SocketTransport
 			if (!self::$forceIpv4 && !empty($ip6s)) { // Attempt IPv6s first
 				foreach ($ip6s as $ip) {
 					if ($this->debug) call_user_func($this->debugHandler, "Connecting to $ip:$port...");
-					$r = socket_connect($socket6, $ip, $port);
+					$r = @socket_connect($socket6, $ip, $port);
 					if ($r) {
 						if ($this->debug) call_user_func($this->debugHandler, "Connected to $ip:$port!");
 						@socket_close($socket4);
@@ -246,7 +246,7 @@ class SocketTransport
 			if (!self::$forceIpv6 && !empty($ip4s)) {
 				foreach ($ip4s as $ip) {
 					if ($this->debug) call_user_func($this->debugHandler, "Connecting to $ip:$port...");
-					$r = socket_connect($socket4, $ip, $port);
+					$r = @socket_connect($socket4, $ip, $port);
 					if ($r) {
 						if ($this->debug) call_user_func($this->debugHandler, "Connected to $ip:$port!");
 						@socket_close($socket6);

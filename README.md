@@ -3,12 +3,8 @@ PHP-based SMPP client lib
 
 This is a simplified SMPP client lib for sending or receiving smses through [SMPP v3.4](http://www.smsforum.net/SMPP_v3_4_Issue1_2.zip).
 
-The socket implementation from [Apache's Thrift](http://thrift.apache.org/) is used for the transport layer components. 
+In addition to the client, this lib also contains an encoder for converting UTF-8 text to the GSM 03.38 encoding, and a socket wrapper. The socket wrapper provides connection pool, IPv6 and timeout monitoring features on top of PHP's socket extension.  
 
-The library is divided into two parts:
-
- - protocol - containing everything related to SMPP
- - transport - the transport components from Apache's Thrift
 
 Basic usage example
 -----
@@ -41,7 +37,7 @@ $smpp->bindTransmitter("USERNAME","PASSWORD");
 // Prepare message
 $message = 'H€llo world';
 $encodedMessage = GsmEncoder::utf8_to_gsm0338($message);
-$from = new SmppAddress(SMPP Test',SMPP::TON_ALPHANUMERIC);
+$from = new SmppAddress('SMPP Test',SMPP::TON_ALPHANUMERIC);
 $to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
 
 // Send
@@ -78,6 +74,19 @@ var_dump($sms);
 // Close connection
 $smpp->close();
 ```
+
+
+Connection pools
+-----
+You can specify a list of connections to have the SocketTransport attempt each one in succession or randomly. Also if you give it a hostname with multiple A/AAAA-records it will try each one.
+If you want to monitor the DNS lookups, set defaultDebug to true before constructing the transport.
+
+The (configurable) send timeout governs how long it will wait for each server to timeout. It can take a long time to try a long list of servers, depending on the timeout. You can change the timeout both before and after the connection attempts are made.
+
+The transport supports IPv6 and will prefer IPv6 addresses over IPv4 when available. You can modify this feature by setting forceIpv6 or forceIpv4 to force it to only use IPv6 or IPv4.
+
+In addition to the DNS lookups, it will also look for local IPv4 addresses using gethostbyname(), so "localhost" works for IPv4. For IPv6 localhost specify "::1". 
+
 
 Implementation notes
 -----
