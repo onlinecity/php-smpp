@@ -3,7 +3,9 @@ PHP-based SMPP client lib
 
 This is a simplified SMPP client lib for sending or receiving smses through [SMPP v3.4](http://www.smsforum.net/SMPP_v3_4_Issue1_2.zip).
 
-In addition to the client, this lib also contains an encoder for converting UTF-8 text to the GSM 03.38 encoding, and a socket wrapper. The socket wrapper provides connection pool, IPv6 and timeout monitoring features on top of PHP's socket extension.  
+In addition to the client, this lib also contains an encoder for converting UTF-8 text to the GSM 03.38 encoding, and a socket wrapper. The socket wrapper provides connection pool, IPv6 and timeout monitoring features on top of PHP's socket extension.
+
+This lib has changed significantly from it's first release, which required namespaces and included some worker components. You'll find that release at https://github.com/onlinecity/php-smpp/tree/1.0.1-namespaced.
 
 
 Basic usage example
