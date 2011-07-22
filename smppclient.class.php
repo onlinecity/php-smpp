@@ -1,5 +1,5 @@
 <?php
-require_once $GLOBALS['SMPP_ROOT'].'/transport/ttransport.class.php';
+require_once dirname(__FILE__).DIRECTORY_SEPARATOR.'sockettransport.class.php';
 	
 /**
  * Class for receiving or sending sms through SMPP protocol.
@@ -72,10 +72,10 @@ class SmppClient
 	/**
 	 * Construct the SMPP class
 	 * 
-	 * @param TTransport $transport
+	 * @param SocketTransport $transport
 	 * @param string $debugHandler
 	 */
-	public function __construct(TTransport $transport,$debugHandler=null)
+	public function __construct(SocketTransport $transport,$debugHandler=null)
 	{
 		// Internal parameters
 		$this->sequence_number=1;
@@ -457,6 +457,37 @@ class SmppClient
 	}
 	
 	/**
+	 * Respond to any enquire link we might have waiting.
+	 * If will check the queue first and respond to any enquire links we have there.
+	 * Then it will move on to the transport, and if the first PDU is enquire link respond, 
+	 * otherwise add it to the queue and return.
+	 * 
+	 */
+	public function respondEnquireLink()
+	{
+		// Check the queue first
+		$ql = count($this->pdu_queue);
+		for($i=0;$i<$ql;$i++) {
+			$pdu=$this->pdu_queue[$i];
+			if($pdu->id==SMPP::ENQUIRE_LINK) {
+				//remove response
+				array_splice($this->pdu_queue, $i, 1);
+				$this->sendPDU(new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00"));
+			}
+		}
+		
+		// Check the transport for data
+		if ($this->transport->hasData()) {
+			$pdu = $this->readPDU();
+			if($pdu->id==SMPP::ENQUIRE_LINK) {
+				$this->sendPDU(new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00"));
+			} else {
+				array_push($this->pdu_queue, $pdu);
+			}
+		}
+	}
+	
+	/**
 	 * Reconnect to SMSC.
 	 * This is mostly to deal with the situation were we run out of sequence numbers
 	 */
@@ -514,7 +545,7 @@ class SmppClient
 			call_user_func($this->debugHandler, ' command_id      : 0x'.dechex($pdu->id));
 			call_user_func($this->debugHandler, ' sequence number : '.$pdu->sequence);
 		}
-		$this->transport->write($header.$pdu->body);
+		$this->transport->write($header.$pdu->body,$length);
 	}
 	
 	/**
