@@ -162,18 +162,15 @@ class SmppClient
 			$pdu = $this->readPDU();
 			if ($pdu === false) return false; // TSocket v. 0.6.0+ returns false on timeout
 			//check for enquire link command
-			if($pdu->id==SMPP::ENQUIRE_LINK){
+			if($pdu->id==SMPP::ENQUIRE_LINK) {
 				$response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
 				$this->sendPDU($response);
-				return false;
+			} else if ($pdu->id!=$command_id) { // if this is not the correct PDU add to queue
+				array_push($this->pdu_queue, $pdu);
 			}
-			array_push($this->pdu_queue, $pdu);
 		} while($pdu && $pdu->id!=$command_id);
 		
-		if($pdu) {
-			array_pop($this->pdu_queue);
-			return $this->parseSMS($pdu);
-		}
+		if($pdu) return $this->parseSMS($pdu);
 		return false;
 	}
 	
@@ -489,6 +486,7 @@ class SmppClient
 		$pdu = new SmppPdu($id, 0, $this->sequence_number, $pduBody);
 		$this->sendPDU($pdu);
 		$response=$this->readPDU_resp($this->sequence_number, $pdu->id);
+		if ($response === false) throw new SmppException('Failed to read reply to command: 0x'.dechex($id));
 		
 		if ($response->status != SMPP::ESME_ROK) throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
 		
