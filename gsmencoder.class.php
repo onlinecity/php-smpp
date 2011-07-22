@@ -1,6 +1,4 @@
 <?php
-namespace gateway\protocol;
-
 /**
  * Class capable of encoding GSM 03.38 default alphabet and packing octets into septets as described by GSM 03.38.
  * Based on mapping: http://www.unicode.org/Public/MAPPINGS/ETSI/GSM0338.TXT
@@ -15,7 +13,10 @@ class GsmEncoder
 	/**
 	 * Encode an UTF-8 string into GSM 03.38
 	 * Since UTF-8 is largely ASCII compatible, and GSM 03.38 is somewhat compatible, unnecessary conversions are removed.
-	 * Specials chars such as € can be encoded by using an escape char \x1B in front of a backwards compatible (similar) char
+	 * Specials chars such as € can be encoded by using an escape char \x1B in front of a backwards compatible (similar) char.
+	 * UTF-8 chars which doesn't have a GSM 03.38 equivalent is replaced with a question mark. 
+	 * UTF-8 continuation bytes (\x08-\xBF) are replaced when encountered in their valid places, but 
+	 * any continuation bytes outside of a valid UTF-8 sequence is not processed.
 	 *
 	 * @param string $string
 	 * @return string
@@ -33,7 +34,24 @@ class GsmEncoder
 			'ä' => "\x7B", 'ö' => "\x7C", 'ñ' => "\x7D", 'ü' => "\x7E", 'à' => "\x7F",
 			'^' => "\x1B\x14", '{' => "\x1B\x28", '}' => "\x1B\x29", '\\' => "\x1B\x2F", '[' => "\x1B\x3C", '~' => "\x1B\x3D", ']' => "\x1B\x3E", '|' => "\x1B\x40", '€' => "\x1B\x65"
 		);
-		return strtr($string, $dict);
+		$converted = strtr($string, $dict);
+		
+		// Replace unconverted UTF-8 chars from codepages U+0080-U+07FF, U+0080-U+FFFF and U+010000-U+10FFFF with a single ?
+		return preg_replace('/([\\xC0-\\xDF].)|([\\xE0-\\xEF]..)|([\\xF0-\\xFF]...)/m','?',$converted);
+	}
+	
+	/**
+	 * Count the number of GSM 03.38 chars a conversion would contain.
+	 * It's about 3 times faster to count than convert and do strlen() if conversion is not required.
+	 * 
+	 * @param string $utf8String
+	 * @return integer
+	 */
+	public static function countGsm0338Length($utf8String)
+	{
+		$len = mb_strlen($utf8String,'utf-8');
+		$len += preg_match_all('/[\\^{}\\\~€|\\[\\]]/mu',$utf8String,$m);
+		return $len;
 	}
 
 	/**
@@ -52,7 +70,7 @@ class GsmEncoder
 		for ($i = 0; $i < $l; $i++) {
 			// cap off any excess bytes
 			$septet = ord($data[$i]) & 0x7f;
-			// append the septet and the and then cap off excess bytes
+			// append the septet and then cap off excess bytes
 			$currentByte |= ($septet << $offset) & 0xff;
 			// update offset
 			$offset += 7;
