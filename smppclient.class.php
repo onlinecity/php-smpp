@@ -481,7 +481,7 @@ class SmppClient
 			$pdu = $this->readPDU();
 			if($pdu->id==SMPP::ENQUIRE_LINK) {
 				$this->sendPDU(new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00"));
-			} else {
+			} else if ($pdu) {
 				array_push($this->pdu_queue, $pdu);
 			}
 		}
