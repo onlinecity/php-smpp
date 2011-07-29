@@ -305,7 +305,7 @@ class SocketTransport
 	public function read($length)
 	{
 		$d = socket_read($this->socket,$length,PHP_BINARY_READ);
-		if ($d === false && socket_last_error() === 11) return false; // sockets give 11 (EAGAIN) on timeout
+		if ($d === false && socket_last_error() === SOCKET_EAGAIN) return false; // sockets give EAGAIN on timeout
 		if ($d === false) throw new SocketTransportException('Could not read '.$length.' bytes from socket; '.socket_strerror(socket_last_error()), socket_last_error());
 		if ($d === '') return false;
 		return $d;
