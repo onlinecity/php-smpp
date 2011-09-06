@@ -160,7 +160,7 @@ class SmppClient
 		// Read pdu
 		do{
 			$pdu = $this->readPDU();
-			if ($pdu === false) return false; // TSocket v. 0.6.0+ returns false on timeout
+			if ($pdu === false) return false; // Just in case
 			//check for enquire link command
 			if($pdu->id==SMPP::ENQUIRE_LINK) {
 				$response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
@@ -519,6 +519,9 @@ class SmppClient
 	
 	/**
 	 * Waits for SMSC response on specific PDU.
+	 * If a GENERIC_NACK with a matching sequence number, or null sequence is received instead it's also accepted.
+	 * Some SMPP servers, ie. logica returns GENERIC_NACK on errors.
+	 *
 	 * @param integer $seq_number - PDU sequence number
 	 * @param integer $command_id - PDU command ID
 	 * @return SmppPdu
@@ -528,27 +531,30 @@ class SmppClient
 	{
 		// Get response cmd id from command id
 		$command_id=$command_id|SMPP::GENERIC_NACK;
-		
+	
 		// Check the queue first
 		$ql = count($this->pdu_queue);
 		for($i=0;$i<$ql;$i++) {
 			$pdu=$this->pdu_queue[$i];
-			if($pdu->sequence==$seq_number && $pdu->id==$command_id) {
+			if (
+				($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) ||
+				($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK)
+			) {
 				// remove response pdu from queue
 				array_splice($this->pdu_queue, $i, 1);
 				return $pdu;
 			}
 		}
-		// Read pdu until ours show up
+	
+		// Read PDUs until the one we are looking for shows up, or a generic nack pdu with matching sequence or null sequence
 		do{
 			$pdu=$this->readPDU();
-			if($pdu) array_push($this->pdu_queue, $pdu);
-		} while($pdu && ($pdu->sequence!=$seq_number || $pdu->id!=$command_id));
-		// Remove response from queue
-		if($pdu){
-			array_pop($this->pdu_queue);
-			return $pdu;
-		}
+			if ($pdu) {
+				if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
+				if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
+				array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
+			}
+		} while($pdu);
 		return false;
 	}
 	
