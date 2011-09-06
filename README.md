@@ -29,7 +29,7 @@ function printDebug($str) {
 
 try {
 	// Construct transport and client, customize settings
-	$transport = new TSocket('localhost',2700,false,'printDebug'); // hostname/ip and port
+	$transport = new TSocket('localhost',2775,false,'printDebug'); // hostname/ip (ie. localhost) and port (ie. 2775)
 	$transport->setRecvTimeout(10000);
 	$transport->setSendTimeout(10000);
 	$smpp = new SmppClient($transport,'printDebug');
@@ -40,7 +40,7 @@ try {
 	
 	// Open the connection
 	$transport->open();
-	$smpp->bindTransmitter("jorge","prtgljrg");
+	$smpp->bindTransmitter("USERNAME","PASSWORD");
 	
 	// Optional: If you get errors during sendSMS, try this. Needed for ie. opensmpp.logica.com based servers.
 	//SmppClient::$sms_null_terminate_octetstrings = false;
