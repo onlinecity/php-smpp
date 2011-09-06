@@ -580,8 +580,11 @@ class SmppClient
 		// Read PDUs until the one we are looking for shows up, or a generic nack pdu with matching sequence or null sequence
 		do{
 			$pdu=$this->readPDU();
-			if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
-			if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
+			if ($pdu) {
+				if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
+				if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
+				array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
+			}
 		} while($pdu);
 		return false;
 	}
