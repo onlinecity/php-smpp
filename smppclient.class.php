@@ -83,7 +83,7 @@ class SmppClient
 		$this->pdu_queue=array();
 		
 		$this->transport = $transport;
-		$this->debugHandler = $debugHandler ?: 'error_log';
+		$this->debugHandler = $debugHandler ? $debugHandler : 'error_log';
 		$this->mode = null;
 	}
 	
@@ -550,6 +550,9 @@ class SmppClient
 	
 	/**
 	 * Waits for SMSC response on specific PDU.
+	 * If a GENERIC_NACK with a matching sequence number, or null sequence is received instead it's also accepted.
+	 * Some SMPP servers, ie. logica returns GENERIC_NACK on errors.
+	 * 
 	 * @param integer $seq_number - PDU sequence number
 	 * @param integer $command_id - PDU command ID
 	 * @return SmppPdu
@@ -564,22 +567,25 @@ class SmppClient
 		$ql = count($this->pdu_queue);
 		for($i=0;$i<$ql;$i++) {
 			$pdu=$this->pdu_queue[$i];
-			if($pdu->sequence==$seq_number && $pdu->id==$command_id) {
+			if (
+				($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) || 
+				($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK)
+			) {
 				// remove response pdu from queue
 				array_splice($this->pdu_queue, $i, 1);
 				return $pdu;
 			}
 		}
-		// Read pdu until ours show up
+		
+		// Read PDUs until the one we are looking for shows up, or a generic nack pdu with matching sequence or null sequence
 		do{
 			$pdu=$this->readPDU();
-			if($pdu) array_push($this->pdu_queue, $pdu);
-		} while($pdu && ($pdu->sequence!=$seq_number || $pdu->id!=$command_id));
-		// Remove response from queue
-		if($pdu){
-			array_pop($this->pdu_queue);
-			return $pdu;
-		}
+			if ($pdu) {
+				if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
+				if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
+				array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
+			}
+		} while($pdu);
 		return false;
 	}
 	
@@ -1148,6 +1154,6 @@ class SmppTag
 	 */
 	public function getBinary()
 	{
-		return pack('nn'.$this->type, $this->id, ($this->length ?: strlen($this->value)), $this->value);
+		return pack('nn'.$this->type, $this->id, ($this->length ? $this->length : strlen($this->value)), $this->value);
 	}
 }

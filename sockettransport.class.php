@@ -37,7 +37,7 @@ class SocketTransport
 	public function __construct(array $hosts,$ports,$persist=false,$debugHandler=null)
 	{
 		$this->debug = self::$defaultDebug;
-		$this->debugHandler = $debugHandler ?: 'error_log';
+		$this->debugHandler = $debugHandler ? $debugHandler : 'error_log';
 		
 		// Deal with optional port
 		$h = array();
