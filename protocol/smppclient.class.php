@@ -83,7 +83,7 @@ class SmppClient
 		$this->pdu_queue=array();
 		
 		$this->transport = $transport;
-		$this->debugHandler = $debugHandler ?: 'error_log';
+		$this->debugHandler = $debugHandler ? $debugHandler : 'error_log';
 		$this->mode = null;
 	}
 	
@@ -1117,6 +1117,6 @@ class SmppTag
 	 */
 	public function getBinary()
 	{
-		return pack('nn'.$this->type, $this->id, ($this->length ?: strlen($this->value)), $this->value);
+		return pack('nn'.$this->type, $this->id, ($this->length ? $this->length : strlen($this->value)), $this->value);
 	}
 }
