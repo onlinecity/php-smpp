@@ -22,33 +22,57 @@ require_once $GLOBALS['SMPP_ROOT'].'/protocol/smppclient.class.php';
 require_once $GLOBALS['SMPP_ROOT'].'/protocol/gsmencoder.class.php';
 require_once $GLOBALS['SMPP_ROOT'].'/transport/tsocket.class.php';
 
-// Construct transport and client
-$transport = new TSocket('your.smsc.com',2775);
-$transport->setRecvTimeout(10000);
-$smpp = new SmppClient($transport);
+// Simple debug callback
+function printDebug($str) {
+	echo date('Ymd H:i:s ').$str."\r\n";
+}
 
-// Activate binary hex-output of server interaction
-$smpp->debug = true;
-
-// Open the connection
-$transport->open();
-$smpp->bindTransmitter("USERNAME","PASSWORD");
-
-// Optional connection specific overrides
-//SmppClient::$sms_null_terminate_octetstrings = false;
-//SmppClient::$sms_use_msg_payload_for_csms = true;
-
-// Prepare message
-$message = 'H€llo world';
-$encodedMessage = GsmEncoder::utf8_to_gsm0338($message);
-$from = new SmppAddress(GsmEncoder::utf8_to_gsm0338('SMPP Tést'),SMPP::TON_ALPHANUMERIC);
-$to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
-
-// Send
-$smpp->sendSMS($from,$to,$encodedMessage,$tags);
-
-// Close connection
-$smpp->close();
+try {
+	// Construct transport and client, customize settings
+	$transport = new TSocket('localhost',2700,false,'printDebug'); // hostname/ip and port
+	$transport->setRecvTimeout(10000);
+	$transport->setSendTimeout(10000);
+	$smpp = new SmppClient($transport,'printDebug');
+	
+	// Activate debug of server interaction
+	$smpp->debug = true; 		// binary hex-output
+	$transport->setDebug(true);	// also get TSocket debug
+	
+	// Open the connection
+	$transport->open();
+	$smpp->bindTransmitter("jorge","prtgljrg");
+	
+	// Optional: If you get errors during sendSMS, try this. Needed for ie. opensmpp.logica.com based servers.
+	//SmppClient::$sms_null_terminate_octetstrings = false;
+	
+	// Optional: If your provider supports it, you can let them do CSMS (concatenated SMS) 
+	//SmppClient::$sms_use_msg_payload_for_csms = true;
+	
+	// Prepare message
+	$message = 'H€llo world';
+	$encodedMessage = GsmEncoder::utf8_to_gsm0338($message);
+	$from = new SmppAddress(GsmEncoder::utf8_to_gsm0338('SMPP Tést'),SMPP::TON_ALPHANUMERIC);
+	$to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
+	
+	// Send
+	$smpp->sendSMS($from,$to,$encodedMessage);
+	
+	// Close connection
+	$smpp->close();
+	
+} catch (Exception $e) {
+	// Try to unbind
+	try {
+		$smpp->close();
+	} catch (Exception $ue) {
+		// if that fails just close the transport
+		printDebug("Failed to unbind; '".$ue->getMessage()."' closing transport");
+		if ($transport->isOpen()) $transport->close();
+	}
+	
+	// Rethrow exception, now we are unbound or transport is closed
+	throw $e; 
+}
 ```
 
 To receive a SMS (or delivery receipt):
