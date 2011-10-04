@@ -140,6 +140,76 @@ class SmppClient
 	}
 	
 	/**
+	 * Parse a timestring as formatted by SMPP v3.4 section 7.1.
+	 * Returns an unix timestamp if $newDates is false or DateTime/DateInterval is missing
+	 * 
+	 * @param string $input
+	 * @param boolean $newDates
+	 * @return int
+	 */
+	public function parseSmppTime($input, $newDates=true)
+	{
+		// Check for support for new date classes
+		if (!class_exists('DateTime') || !class_exists('DateInterval')) $newDates = false;
+		
+		$numMatch = preg_match('/^(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{2})(\\d{1})(\\d{2})([R+-])$/',$input,$matches);
+		if (!$numMatch) return null;
+		list($whole, $y, $m, $d, $h, $i, $s, $t, $n, $p) = $matches;
+		
+		// Use strtotime to convert relative time into a unix timestamp
+		if ($p == 'R') {
+			if ($newDates) {
+				$spec = "P";
+				if ($y) $spec .= $y.'Y';
+				if ($m) $spec .= $m.'M';
+				if ($d) $spec .= $d.'D';
+				if ($h || $i || $s) $spec .= 'T';
+				if ($h) $spec .= $h.'H';
+				if ($i) $spec .= $i.'M';
+				if ($s) $spec .= $i.'S';
+				return new DateInterval($spec);
+			} else {
+				return strtotime("+$y year +$m month +$d day +$h hour +$i minute $s second");
+			}
+		} else {
+			$offsetHours = floor($n/4);
+			$offsetMinutes = ($n % 4)*15;
+			$time = sprintf("20%02s-%02s-%02sT%02s:%02s:%02s+%02s:%02s",$y,$m,$d,$h,$i,$s,$offsetHours,$offsetMinutes); // Not Y3K safe
+			if ($newDates) {
+				return new DateTime($time);
+			} else {
+				return strtotime($time);
+			}
+		}
+	}
+	
+	/**
+	 * Query the SMSC about current state/status of a previous sent SMS.
+	 * You must specify the SMSC assigned message id and source of the sent SMS.
+	 * Returns an associative array with elements: message_id, final_date, message_state and error_code.
+	 * 
+	 * @param string $messageid
+	 * @param SmppAddress $source
+	 * @return array
+	 */
+	public function queryStatus($messageid,SmppAddress $source)
+	{
+		$pduBody = pack('a'.(strlen($messageid)+1).'cca'.(strlen($source->value)+1),$messageid,$source->ton,$source->npi,$source->value);
+		$reply = $this->sendCommand(SMPP::QUERY_SM, $pduBody);
+		if (!$reply || $reply->status != SMPP::ESME_ROK) return null;
+		
+		// Parse reply
+		$posId = strpos($reply->body,"\0",0);
+		$posDate = strpos($reply->body,"\0",$posId+1);
+		$data = array();
+		$data['message_id'] = substr($reply->body,0,$posId);
+		$data['final_date'] = substr($reply->body,$posId,$posDate-$posId);
+		$data['final_date'] = $data['final_date'] ? $this->parseSmppTime(trim($data['final_date'])) : null;
+		$status = unpack("cmessage_state/cerror_code",substr($reply->body,$posDate+1));
+		return array_merge($data,$status);
+	}
+	
+	/**
 	 * Read one SMS from SMSC. Can be executed only after bindReceiver() call. 
 	 * This method bloks. Method returns on socket timeout or enquire_link signal from SMSC.
 	 * @return sms associative array or false when reading failed or no more sms.
