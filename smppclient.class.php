@@ -141,11 +141,12 @@ class SmppClient
 	
 	/**
 	 * Parse a timestring as formatted by SMPP v3.4 section 7.1.
-	 * Returns an unix timestamp if $newDates is false or DateTime/DateInterval is missing
+	 * Returns an unix timestamp if $newDates is false or DateTime/DateInterval is missing,
+	 * otherwise an object of either DateTime or DateInterval is returned.
 	 * 
 	 * @param string $input
 	 * @param boolean $newDates
-	 * @return int
+	 * @return mixed
 	 */
 	public function parseSmppTime($input, $newDates=true)
 	{
@@ -174,7 +175,7 @@ class SmppClient
 		} else {
 			$offsetHours = floor($n/4);
 			$offsetMinutes = ($n % 4)*15;
-			$time = sprintf("20%02s-%02s-%02sT%02s:%02s:%02s+%02s:%02s",$y,$m,$d,$h,$i,$s,$offsetHours,$offsetMinutes); // Not Y3K safe
+			$time = sprintf("20%02s-%02s-%02sT%02s:%02s:%02s%s%02s:%02s",$y,$m,$d,$h,$i,$s,$p,$offsetHours,$offsetMinutes); // Not Y3K safe
 			if ($newDates) {
 				return new DateTime($time);
 			} else {
