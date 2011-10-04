@@ -962,7 +962,7 @@ class SmppDeliveryReceipt extends SmppSms
 	 */
 	public function parseDeliveryReceipt()
 	{
-		$numMatches = preg_match('/^id:([^ ]+) sub:(\d{1,3}) dlvrd:(\d{3}) submit date:(\d{10}) done date:(\d{10}) stat:([A-Z]{7}) err:(\d{3}) text:(.*)$/ms', $this->message, $matches);
+		$numMatches = preg_match('/^id:([^ ]+) sub:(\d{1,3}) dlvrd:(\d{3}) submit date:(\d{10,12}) done date:(\d{10,12}) stat:([A-Z]{7}) err:(\d{3}) text:(.*)$/si', $this->message, $matches);
 		if ($numMatches == 0) {
 			throw new InvalidArgumentException('Could not parse delivery receipt: '.$this->message."\n".bin2hex($this->body));	
 		}
@@ -970,9 +970,9 @@ class SmppDeliveryReceipt extends SmppSms
 		
 		// Convert dates
 		$dp = str_split($this->submitDate,2);
-		$this->submitDate = gmmktime($dp[3],$dp[4],0,$dp[1],$dp[2],$dp[0]);
+		$this->submitDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
 		$dp = str_split($this->doneDate,2);
-		$this->doneDate = gmmktime($dp[3],$dp[4],0,$dp[1],$dp[2],$dp[0]);
+		$this->doneDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
 	}
 }
 
