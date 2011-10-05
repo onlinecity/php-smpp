@@ -166,10 +166,10 @@ class SmppClient
 				if ($h || $i || $s) $spec .= 'T';
 				if ($h) $spec .= $h.'H';
 				if ($i) $spec .= $i.'M';
-				if ($s) $spec .= $i.'S';
+				if ($s) $spec .= $s.'S';
 				return new DateInterval($spec);
 			} else {
-				return strtotime("+$y year +$m month +$d day +$h hour +$i minute $s second");
+				return strtotime("+$y year +$m month +$d day +$h hour +$i minute $s +second");
 			}
 		} else {
 			$offsetHours = floor($n/4);
@@ -187,6 +187,8 @@ class SmppClient
 	 * Query the SMSC about current state/status of a previous sent SMS.
 	 * You must specify the SMSC assigned message id and source of the sent SMS.
 	 * Returns an associative array with elements: message_id, final_date, message_state and error_code.
+	 * 	message_state would be one of the SMPP::STATE_* constants. (SMPP v3.4 section 5.2.28)
+	 * 	error_code depends on the telco network, so could be anything.
 	 * 
 	 * @param string $messageid
 	 * @param SmppAddress $source
