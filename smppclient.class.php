@@ -504,18 +504,26 @@ class SmppClient
 			$tags = null;
 		}
 		
-		if (($esmClass & SMPP::ESM_DELIVER_SMSC_RECEIPT) != 0) {
-			$sms = new SmppDeliveryReceipt($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
-			$sms->parseDeliveryReceipt();
-		} else {
-			$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
-		}
 		
+		$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
 		if($this->debug) call_user_func($this->debugHandler, "Received sms:\n".print_r($sms,true));
 		
 		// Send response of recieving sms
 		$response = new SmppPdu(SMPP::DELIVER_SM_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
 		$this->sendPDU($response);
+		
+		// Do additional parsing if relevant
+		if (($esmClass & SMPP::ESM_DELIVER_SMSC_RECEIPT) != 0) {
+			$dlr = new SmppDeliveryReceipt($sms);
+			$result = $dlr->parseDeliveryReceipt();
+			if ($result) return $dlr; 
+				
+			// Try it as a HLR instead
+			$hlr = new SmppHlrResult($sms);
+			$result = $hlr->parseHlrResult();
+			if ($result) return $hlr;
+		}
+		
 		return $sms;
 	}
 	
@@ -1015,9 +1023,52 @@ class SmppPdu
 /**
  * An extension of a SMS, with data embedded into the message part of the SMS.
  * @author hd@onlinecity.dk
+ *
+ */
+class SmppHlrResult extends SmppSms
+{
+	public function __construct(SmppSms &$sms)
+	{
+		$this->copy($sms);
+	}
+	
+	public $id;
+	public $status;
+	public $err;
+	public $mcc; 	// Mobile Country Code
+	public $mnc; 	// Mobile Network Code
+	public $cn; 	// Country name
+	public $net; 	// Network name
+	public $rcn;	// Roaming country name
+	public $rnet;	// Roaming network name
+	public $imsi;	// IMSI
+	public $msc;	// Mobile Switching Centre
+	
+	/**
+	* Parse a HLR result
+	* As specified at: http://smsc.ru/api/smpp/
+	* Returns false on parsing errors
+	*/
+	public function parseHlrResult()
+	{
+		$numMatches = preg_match('/^id:([^ ]+) stat:([A-Z]{7}) err:(\d{3}) mcc:(\d{3}) mnc:(\d{2}) cn:([^ ]+) net:([^ ]+) rcn:([^ ]*) rnet:([^ ]*) imsi:([^ ]*) msc:([^ ]*)$/i', $this->message, $matches);
+		if ($numMatches == 0) return false;
+		list($matched, $this->id, $this->status, $this->err, $this->mcc, $this->mnc, $this->cn, $this->net, $this->rcn, $this->rnet, $this->imsi, $this->msc) = $matches;
+		return true;
+	}
+}
+
+/**
+ * An extension of a SMS, with data embedded into the message part of the SMS.
+ * @author hd@onlinecity.dk
  */
 class SmppDeliveryReceipt extends SmppSms
 {
+	public function __construct(SmppSms &$sms)
+	{
+		$this->copy($sms);
+	}
+	
 	public $id;
 	public $sub;
 	public $dlvrd;
@@ -1029,16 +1080,14 @@ class SmppDeliveryReceipt extends SmppSms
 	
 	/**
 	 * Parse a delivery receipt formatted as specified in SMPP v3.4 - Appendix B
-	 * It accepts all chars except space as the message id
+	 * It accepts all chars except space as the message id.
+	 * Returns false on parsing errors
 	 * 
-	 * @throws InvalidArgumentException
 	 */
 	public function parseDeliveryReceipt()
 	{
 		$numMatches = preg_match('/^id:([^ ]+) sub:(\d{1,3}) dlvrd:(\d{3}) submit date:(\d{10,12}) done date:(\d{10,12}) stat:([A-Z]{7}) err:(\d{3}) text:(.*)$/si', $this->message, $matches);
-		if ($numMatches == 0) {
-			throw new InvalidArgumentException('Could not parse delivery receipt: '.$this->message."\n".bin2hex($this->body));	
-		}
+		if ($numMatches == 0) return false;
 		list($matched, $this->id, $this->sub, $this->dlvrd, $this->submitDate, $this->doneDate, $this->stat, $this->err, $this->text) = $matches;
 		
 		// Convert dates
@@ -1046,6 +1095,7 @@ class SmppDeliveryReceipt extends SmppSms
 		$this->submitDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
 		$dp = str_split($this->doneDate,2);
 		$this->doneDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
+		return true;
 	}
 }
 
@@ -1113,6 +1163,28 @@ class SmppSms extends SmppPdu
 		$this->validityPeriod = $validityPeriod;
 		$this->smDefaultMsgId = $smDefaultMsgId;
 		$this->replaceIfPresentFlag = $replaceIfPresentFlag;
+	}
+	
+	/**
+	 * Copy another SMS' vars to ours
+	 * @param SmppSms $rhs
+	 */
+	public function copy(SmppSms &$rhs)
+	{
+		$this->service_type = $rhs->service_type;
+		$this->source = $rhs->source;
+		$this->destination = $rhs->destination;
+		$this->esmClass = $rhs->esmClass;
+		$this->protocolId = $rhs->protocolId;
+		$this->priorityFlag = $rhs->priorityFlag;
+		$this->registeredDelivery = $rhs->registeredDelivery;
+		$this->dataCoding = $rhs->dataCoding;
+		$this->message = $rhs->message;
+		$this->tags = $rhs->tags;
+		$this->scheduleDeliveryTime = $rhs->scheduleDeliveryTime;
+		$this->validityPeriod = $rhs->validityPeriod;
+		$this->smDefaultMsgId = $rhs->smDefaultMsgId;
+		$this->replaceIfPresentFlag = $rhs->replaceIfPresentFlag;
 	}
 		
 }
