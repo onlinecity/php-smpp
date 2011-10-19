@@ -508,7 +508,7 @@ class SmppClient
 		$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
 		if($this->debug) call_user_func($this->debugHandler, "Received sms:\n".print_r($sms,true));
 		
-		// Send response of recieving sms
+		// Send response of receiving sms
 		$response = new SmppPdu(SMPP::DELIVER_SM_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
 		$this->sendPDU($response);
 		
@@ -1036,7 +1036,7 @@ class SmppHlrResult extends SmppSms
 	public $status;
 	public $err;
 	public $mcc; 	// Mobile Country Code
-	public $mnc; 	// Mobile Network Code
+	public $mnc; 	// Mobile Network Code (see http://en.wikipedia.org/wiki/Mobile_Network_Code)
 	public $cn; 	// Country name
 	public $net; 	// Network name
 	public $rcn;	// Roaming country name
@@ -1051,7 +1051,7 @@ class SmppHlrResult extends SmppSms
 	*/
 	public function parseHlrResult()
 	{
-		$numMatches = preg_match('/^id:([^ ]+) stat:([A-Z]{7}) err:(\d{3}) mcc:(\d{3}) mnc:(\d{2}) cn:([^ ]+) net:([^ ]+) rcn:([^ ]*) rnet:([^ ]*) imsi:([^ ]*) msc:([^ ]*)$/i', $this->message, $matches);
+		$numMatches = preg_match('/^id:([^ ]+) stat:([A-Z]{7}) err:(\d{3}) mcc:(\d{1,3}) mnc:(\d{1,3}) cn:([^ ]+) net:([^ ]+) rcn:([^ ]*) rnet:([^ ]*) imsi:([^ ]*) msc:([^ ]*)$/i', $this->message, $matches);
 		if ($numMatches == 0) return false;
 		list($matched, $this->id, $this->status, $this->err, $this->mcc, $this->mnc, $this->cn, $this->net, $this->rcn, $this->rnet, $this->imsi, $this->msc) = $matches;
 		return true;
