@@ -66,7 +66,7 @@ class SmppClient
 	 */
 	const CSMS_8BIT_UDH = 2;
 	
-	public static $csms_method = CSMS_16BIT_TAGS;
+	public static $csms_method = SmppClient::CSMS_16BIT_TAGS;
 	
 	public $debug;
 	
