@@ -49,10 +49,24 @@ class SmppClient
 	public static $sms_null_terminate_octetstrings=true;
 	
 	/**
-	 * Use the optional param, message_payload to send concatenated SMSes?
-	 * @var boolean
+	 * Use sar_msg_ref_num and sar_total_segments with 16 bit tags
+	 * @var integer
 	 */
-	public static $sms_use_msg_payload_for_csms=false;
+	const CSMS_16BIT_TAGS = 0;
+	
+	/**
+	 * Use message payload for CSMS
+	 * @var integer
+	 */
+	const CSMS_PAYLOAD = 1;
+	
+	/**
+	 * Embed a UDH in the message with 8-bit reference.
+	 * @var integer
+	 */
+	const CSMS_8BIT_UDH = 2;
+	
+	public static $csms_method = CSMS_16BIT_TAGS;
 	
 	public $debug;
 	
@@ -286,7 +300,7 @@ class SmppClient
 		// Figure out if we need to do CSMS, since it will affect our PDU
 		if ($msg_length > $singleSmsOctetLimit) {
 			$doCsms = true;
-			if (!self::$sms_use_msg_payload_for_csms) {
+			if (!self::$csms_method != SmppClient::CSMS_PAYLOAD) {
 				$parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
 				$short_message = reset($parts);
 				$csmsReference = $this->getCsmsReference();
@@ -298,9 +312,17 @@ class SmppClient
 		
 		// Deal with CSMS
 		if ($doCsms) {
-			if (self::$sms_use_msg_payload_for_csms) {
+			if (self::$csms_method == SmppClient::CSMS_PAYLOAD) {
 				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
 				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+			} else if (self::$csms_method == SmppClient::CSMS_8BIT_UDH) {
+				$seqnum = 1;
+				foreach ($parts as $part) {
+					$udh = pack('cccccc',5,0,3,substr($csmsReference,1,1),count($parts),$seqnum);
+					$res = $this->submit_sm($from, $to, $udh.$part, $tags, $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod, (SmppClient::$sms_esm_class|0x40));
+					$seqnum++;
+				}
+				return $res;
 			} else {
 				$sar_msg_ref_num = new SmppTag(SmppTag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
 				$sar_total_segments = new SmppTag(SmppTag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
@@ -330,10 +352,13 @@ class SmppClient
 	 * @param integer $priority
 	 * @param string $scheduleDeliveryTime
 	 * @param string $validityPeriod
+	 * @param string $esmClass
 	 * @return string message id
 	 */
-	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
 	{
+		if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
+		
 		// Construct PDU with mandatory fields
 		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
 			self::$sms_service_type,
@@ -343,7 +368,7 @@ class SmppClient
 			$destination->ton,
 			$destination->npi,
 			$destination->value,
-			self::$sms_esm_class,
+			$esmClass,
 			self::$sms_protocol_id,
 			$priority,
 			$scheduleDeliveryTime,
@@ -374,9 +399,10 @@ class SmppClient
 	 */
 	protected function getCsmsReference()
 	{
-		if (!isset($this->sar_msg_ref_num)) $this->sar_msg_ref_num = mt_rand(0,65535);
+		$limit = (SmppClient::$csms_method == SmppClient::CSMS_8BIT_UDH) ? 255 : 65535;
+		if (!isset($this->sar_msg_ref_num)) $this->sar_msg_ref_num = mt_rand(0,$limit);
 		$this->sar_msg_ref_num++;
-		if ($this->sar_msg_ref_num>65535) $this->sar_msg_ref_num = 0;
+		if ($this->sar_msg_ref_num>$limit) $this->sar_msg_ref_num = 0;
 		return $this->sar_msg_ref_num;
 	}
 	
