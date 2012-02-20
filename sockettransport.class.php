@@ -64,7 +64,7 @@ class SocketTransport
 			list($hostname,$port) = $host;
 			$ip4s = array();
 			$ip6s = array();
-			if (preg_match('/^([12]?[0-5]?[0-9]\.){3}([12]?[0-5]?[0-9])$/',$hostname)) {
+			if (preg_match('/^([12]?[0-9]?[0-9]\.){3}([12]?[0-9]?[0-9])$/',$hostname)) {
 				// IPv4 address
 				$ip4s[] = $hostname;
 			} else if (preg_match('/^([0-9a-f:]+):[0-9a-f]{1,4}$/i',$hostname)) {
