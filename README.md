@@ -109,7 +109,7 @@ Implementation notes
 F.A.Q.
 -----
 
-**I can't send more than 160 chars**
+**I can't send more than 160 chars**  
 There are three built-in methods to send Concatenated SMS (csms); CSMS_16BIT_TAGS, CSMS_PAYLOAD, CSMS_8BIT_UDH. CSMS_16BIT_TAGS is the default, if it don't work try another.
 
 **Is this lib compatible with PHP 5.2.x ?**  
