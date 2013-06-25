@@ -340,6 +340,84 @@ class SmppClient
 	}
 	
 	/**
+	 * Send multiple SMS to SMSC. Can be executed only after bindTransmitter() call.
+	 * $message is always in octets regardless of the data encoding.
+	 * For correct handling of Concatenated SMS, message must be encoded with GSM 03.38 (data_coding 0x00) or UCS-2BE (0x08).
+	 * Concatenated SMS'es uses 16-bit reference numbers, which gives 152 GSM 03.38 chars or 66 UCS-2BE chars per CSMS.
+	 *
+	 * @param SmppAddress $from
+	 * @param Array $to
+	 * @param string $message
+	 * @param array $tags (optional)
+	 * @param integer $dataCoding (optional)
+	 * @param integer $priority (optional)
+	 * @param string $scheduleDeliveryTime (optional)
+	 * @param string $validityPeriod (optional)
+	 * @return string message id
+	 */
+	public function sendMultiSMS(SmppAddress $from, Array $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+	{
+		$msg_length = strlen($message);
+
+		if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) return false;
+
+		switch ($dataCoding) {
+			case SMPP::DATA_CODING_UCS2:
+				$singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
+				$csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
+				break;
+			case SMPP::DATA_CODING_DEFAULT:
+				$singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
+				$csmsSplit = 152; // send 152 chars in each SMS since, we will use 16-bit CSMS ids (SMSC will format data)
+				break;
+			default:
+				$singleSmsOctetLimit = 254; // From SMPP standard
+				break;
+		}
+
+		// Figure out if we need to do CSMS, since it will affect our PDU
+		if ($msg_length > $singleSmsOctetLimit) {
+			$doCsms = true;
+			if (!self::$csms_method != SmppClient::CSMS_PAYLOAD) {
+				$parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
+				$short_message = reset($parts);
+				$csmsReference = $this->getCsmsReference();
+			}
+		} else {
+			$short_message = $message;
+			$doCsms = false;
+		}
+
+		// Deal with CSMS
+		if ($doCsms) {
+			if (self::$csms_method == SmppClient::CSMS_PAYLOAD) {
+				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
+				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+			} else if (self::$csms_method == SmppClient::CSMS_8BIT_UDH) {
+				$seqnum = 1;
+				foreach ($parts as $part) {
+					$udh = pack('cccccc',5,0,3,substr($csmsReference,1,1),count($parts),$seqnum);
+					$res = $this->submit_sm($from, $to, $udh.$part, $tags, $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod, (SmppClient::$sms_esm_class|0x40));
+					$seqnum++;
+				}
+				return $res;
+			} else {
+				$sar_msg_ref_num = new SmppTag(SmppTag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
+				$sar_total_segments = new SmppTag(SmppTag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
+				$seqnum = 1;
+				foreach ($parts as $part) {
+					$sartags = array($sar_msg_ref_num, $sar_total_segments, new SmppTag(SmppTag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
+					$res = $this->submit_multi($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+					$seqnum++;
+				}
+				return $res;
+			}
+		}
+
+		return $this->submit_multi($from, $to, $short_message, $tags, $dataCoding);
+	}
+	
+	/**
 	 * Perform the actual submit_sm call to send SMS.
 	 * Implemented as a protected method to allow automatic sms concatenation.
 	 * Tags must be an array of already packed and encoded TLV-params.
@@ -389,6 +467,69 @@ class SmppClient
 		}
 		
 		$response=$this->sendCommand(SMPP::SUBMIT_SM,$pdu);
+		$body = unpack("a*msgid",$response->body);
+		return $body['msgid'];
+	}
+	
+	/**
+	 * Perform the actual submit_multi call to send SMS.
+	 * Implemented as a protected method to allow automatic sms concatenation.
+	 * Tags must be an array of already packed and encoded TLV-params.
+	 *
+	 * @param SmppAddress $source
+	 * @param SmppAddress $destination
+	 * @param string $short_message
+	 * @param array $tags
+	 * @param integer $dataCoding
+	 * @param integer $priority
+	 * @param string $scheduleDeliveryTime
+	 * @param string $validityPeriod
+	 * @param string $esmClass
+	 * @return string message id
+	 */
+	protected function submit_multi(SmppAddress $source, Array $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null, $esmClass=null)
+	{
+		if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
+
+		// Construct PDU with mandatory fields
+		$pdu = pack('a1cca'.(strlen($source->value)+1).'c',
+			self::$sms_service_type,
+			$source->ton,
+			$source->npi,
+			$source->value,
+			count($destination));
+
+		$dest = '';
+		foreach( $destination as $addr) {
+			$dest_len = strlen($addr->value);
+			$spec = "ccca{$dest_len}";
+			$dest .= pack($spec, 1, $addr->ton, $addr->npi, $addr->value);
+		}
+		$pdu .= pack('a'.(strlen($dest)+1),
+			$dest);
+
+		$pdu .= pack('ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+			$esmClass,
+			self::$sms_protocol_id,
+			$priority,
+			$scheduleDeliveryTime,
+			$validityPeriod,
+			self::$sms_registered_delivery_flag,
+			self::$sms_replace_if_present_flag,
+			$dataCoding,
+			self::$sms_sm_default_msg_id,
+			strlen($short_message),//sm_length
+			$short_message//short_message
+		);
+
+		// Add any tags
+		if (!empty($tags)) {
+			foreach ($tags as $tag) {
+				$pdu .= $tag->getBinary();
+			}
+		}
+
+		$response=$this->sendCommand(SMPP::SUBMIT_MULTI,$pdu);
 		$body = unpack("a*msgid",$response->body);
 		return $body['msgid'];
 	}
@@ -808,6 +949,8 @@ class SMPP
 	const QUERY_SM_RESP = 0x80000003;
 	const SUBMIT_SM = 0x00000004;
 	const SUBMIT_SM_RESP = 0x80000004;
+	const SUBMIT_MULTI = 0x00000021;
+	const SUBMIT_MULTI_RESP = 0x80000021;
 	const DELIVER_SM = 0x00000005;
 	const DELIVER_SM_RESP = 0x80000005;
 	const UNBIND = 0x00000006;
