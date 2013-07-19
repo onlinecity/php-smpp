@@ -69,7 +69,7 @@ class SocketTransport
 				$ip4s[] = $hostname;
 			} else if (preg_match('/^([0-9a-f:]+):[0-9a-f]{1,4}$/i',$hostname)) {
 				// IPv6 address
-				$ip6s[] = hostname;
+				$ip6s[] = $hostname;
 			} else { // Do a DNS lookup
 				if (!self::$forceIpv4) {
 					// if not in IPv4 only mode, check the AAAA records first
