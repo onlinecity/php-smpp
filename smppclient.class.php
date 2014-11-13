@@ -266,6 +266,7 @@ class SmppClient
 	 * $message is always in octets regardless of the data encoding.
 	 * For correct handling of Concatenated SMS, message must be encoded with GSM 03.38 (data_coding 0x00) or UCS-2BE (0x08).
 	 * Concatenated SMS'es uses 16-bit reference numbers, which gives 152 GSM 03.38 chars or 66 UCS-2BE chars per CSMS.
+	 * If we are using 8-bit ref numbers in the UDH for CSMS it's 153 GSM 03.38 chars
 	 * 
 	 * @param SmppAddress $from
 	 * @param SmppAddress $to
@@ -290,7 +291,7 @@ class SmppClient
 				break;
 			case SMPP::DATA_CODING_DEFAULT:
 				$singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
-				$csmsSplit = 152; // send 152 chars in each SMS since, we will use 16-bit CSMS ids (SMSC will format data)
+				$csmsSplit = (self::$csms_method == SmppClient::CSMS_8BIT_UDH) ? 153 : 152; // send 152/153 chars in each SMS (SMSC will format data)
 				break;
 			default:
 				$singleSmsOctetLimit = 254; // From SMPP standard
