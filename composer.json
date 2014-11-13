@@ -1,0 +1,29 @@
+{
+  "name": "php-smpp/php-smpp",
+  "description": "PHP-based SMPP client lib",
+  "keywords": ["smpp", "sms", "texting", "gsm"],
+  "homepage": "http://github.com/onlinecity/php-smpp",
+  "type": "library",
+  "license": "LGPL",
+  "authors": [
+    {
+      "name": "Hans Duedal",
+      "email": "hd@oc.dk",
+      "homepage": "http://oc.dk"
+    }
+  ],
+  "require": {
+    "php": ">=5.3.3",
+    "ext-sockets": "*",
+    "ext-mbstring": "*"
+  },
+  "require-dev": {
+  },
+  "autoload": {
+    "files": [
+      "gsmencoder.class.php",
+      "sockettransport.class.php",
+      "smppclient.class.php"
+    ]
+  }
+}
