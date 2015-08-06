@@ -518,10 +518,10 @@ class SmppClient
 		$dataCoding = next($ar);
 		next($ar); // sm_default_msg_id 
 		$sm_length = next($ar);
-        if ($sm_length > 0) {                               // Most var-length values in smpp are null-terminated.
-            $message = $this->getString($ar, $sm_length);   // for some reason, message is not, so it needs an if here.
-        } else {                                            // probably $this->getString() doesnt work fully as expected
-            $message = null;                                // but this is a quick walkaround
+        if ($sm_length > 0) {                               // getString is doing "next()" on $ar
+            $message = $this->getString($ar, $sm_length);   // but it shouldn't for 0-length,not-null-terminated value
+        } else {
+            $message = null;
         }
 		
 		// Check for optional params, and parse them
