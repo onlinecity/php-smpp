@@ -1066,17 +1066,17 @@ class SmppDeliveryReceipt extends SmppSms
 	 */
 	public function parseDeliveryReceipt()
 	{
-		$id = "id:(?<id>[^ ]+)";
-		$sub = "sub:(?<sub>\d{1,3})";
-		$dlvrd = "dlvrd:(?<dlvrd>\d{3})";
-		$submitDate = "submit date:(?<submitDate>\d{10,12})";
-		$doneDate = "done date:(?<doneDate>\d{10,12})";
-		$stat = "stat:(?<stat>[A-Z ]{7})";
-		$err = "err:(?<err>\d{2,3})";
+		$id = "id:(?<id>[^ ]+) ";
+		$sub = "sub:(?<sub>\d{1,3}) ";
+		$dlvrd = "dlvrd:(?<dlvrd>\d{3}) ";
+		$submitDate = "submit date:(?<submitDate>\d{10,12}) ";
+		$doneDate = "done date:(?<doneDate>\d{10,12}) ";
+		$stat = "stat:(?<stat>[A-Z ]{7}) ";
+		$err = "(err:(?<err>\d{2,3}) )?";
 		$text = "text:(?<text>.*)";
-		$numMatches = preg_match("/^$id $sub $dlvrd $submitDate $doneDate $stat $err $text$/si", $this->message, $matches);
+		$numMatches = preg_match("/^{$id}{$sub}{$dlvrd}{$submitDate}{$doneDate}{$stat}{$err}{$text}$/si", $this->message, $matches);
 		if ($numMatches == 0) {
-			throw new InvalidArgumentException('Could not parse delivery receipt: '.$this->message."\n".bin2hex($this->body));	
+			throw new InvalidArgumentException('Could not parse delivery receipt: '.$this->message."\n".bin2hex($this->body));
 		}
 		$this->id = $this->getArrayValue($matches, 'id');
 		$this->sub = $this->getArrayValue($matches, 'sub');
