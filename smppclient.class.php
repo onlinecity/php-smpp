@@ -1066,17 +1066,36 @@ class SmppDeliveryReceipt extends SmppSms
 	 */
 	public function parseDeliveryReceipt()
 	{
-		$numMatches = preg_match('/^id:([^ ]+) sub:(\d{1,3}) dlvrd:(\d{3}) submit date:(\d{10,12}) done date:(\d{10,12}) stat:([A-Z ]{7}) err:(\d{2,3}) text:(.*)$/si', $this->message, $matches);
+		$id = "id:(?<id>[^ ]+)";
+		$sub = "sub:(?<sub>\d{1,3})";
+		$dlvrd = "dlvrd:(?<dlvrd>\d{3})";
+		$submitDate = "submit date:(?<submitDate>\d{10,12})";
+		$doneDate = "done date:(?<doneDate>\d{10,12})";
+		$stat = "stat:(?<stat>[A-Z ]{7})";
+		$err = "err:(?<err>\d{2,3})";
+		$text = "text:(?<text>.*)";
+		$numMatches = preg_match("/^$id $sub $dlvrd $submitDate $doneDate $stat $err $text$/si", $this->message, $matches);
 		if ($numMatches == 0) {
 			throw new InvalidArgumentException('Could not parse delivery receipt: '.$this->message."\n".bin2hex($this->body));	
 		}
-		list($matched, $this->id, $this->sub, $this->dlvrd, $this->submitDate, $this->doneDate, $this->stat, $this->err, $this->text) = $matches;
-		
+		$this->id = $this->getArrayValue($matches, 'id');
+		$this->sub = $this->getArrayValue($matches, 'sub');
+		$this->dlvrd = $this->getArrayValue($matches, 'dlvrd');
+		$this->submitDate = $this->getArrayValue($matches, 'submitDate');
+		$this->doneDate = $this->getArrayValue($matches, 'doneDate');
+		$this->stat = $this->getArrayValue($matches, 'stat');
+		$this->err = $this->getArrayValue($matches, 'err');
+		$this->text = $this->getArrayValue($matches, 'text');
+
 		// Convert dates
 		$dp = str_split($this->submitDate,2);
 		$this->submitDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
 		$dp = str_split($this->doneDate,2);
 		$this->doneDate = gmmktime($dp[3],$dp[4],isset($dp[5]) ? $dp[5] : 0,$dp[1],$dp[2],$dp[0]);
+	}
+
+	private function getArrayValue($array, $key, $default = null){
+		return isset($array[$key]) ? $array[$key] : $default;
 	}
 }
 
