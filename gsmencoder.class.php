@@ -41,6 +41,37 @@ class GsmEncoder
 	}
 	
 	/**
+	 * Encode an GSM 03.38 string into UTF-8 string
+	 *
+	 * @param string $string
+	 * @return string
+	 */
+	public static function gsm0338_to_utf8($string)
+	{
+		$dict = array(
+			"\x00" => '@', "\x01" => '£', "\x02" => '$', "\x03" => '¥', "\x04" => 'è', "\x05" => 'é', "\x06" => 'ù', "\x07" => 'ì', "\x08" => 'ò', "\x09" => 'Ç', "\x0B" => 'Ø', "\x0C" => 'ø', "\x0E" => 'Å', "\x0F" => 'å',
+			"\x10" => 'Δ', "\x11" => '_', "\x12" => 'Φ', "\x13" => 'Γ', "\x14" => 'Λ', "\x15" => 'Ω', "\x16" => 'Π', "\x17" => 'Ψ', "\x18" => 'Σ', "\x19" => 'Θ', "\x1A" => 'Ξ', "\x1C" => 'Æ', "\x1D" => 'æ', "\x1E" => 'ß', "\x1F" => 'É',
+			"\x27" => '‘', "\x27" => '’',
+			"\x5B" => 'Ä', "\x5C" => 'Ö', "\x5D" => 'Ñ', "\x5E" => 'Ü', "\x5F" => '§',
+			"\x60" => '¿',
+			"\x7B" => 'ä', "\x7C" => 'ö', "\x7D" => 'ñ', "\x7E" => 'ü', "\x7F" => 'à',
+			"\x1B\x14" => '^', "\x1B\x28" => '{', "\x1B\x29" => '}', "\x1B\x2F" => '\\', "\x1B\x3C" => '[', "\x1B\x3D" => '~', "\x1B\x3E" => ']', "\x1B\x40" => '|', "\x1B\x65" => '€'
+		);
+		return strtr($string, $dict);
+	}
+
+	/**
+	 * Encode an UCS-2 string into UTF-8 string
+	 *
+	 * @param string $string
+	 * @return string
+	 */
+	public static function ucs2_to_utf8($string)
+	{
+		return mb_convert_encoding($string, "UTF-8", "UTF-16");
+	}
+	
+	/**
 	 * Count the number of GSM 03.38 chars a conversion would contain.
 	 * It's about 3 times faster to count than convert and do strlen() if conversion is not required.
 	 * 
