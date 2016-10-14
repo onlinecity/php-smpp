@@ -16,5 +16,8 @@
     "php": ">=5.3.3"
   },
   "require-dev": {
+  },
+  "autoload": {
+    "psr-4": { "Phpsmpp\\": "" }
   }
 }

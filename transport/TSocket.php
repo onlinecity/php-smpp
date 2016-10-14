@@ -1,11 +1,12 @@
 <?php
-require_once $GLOBALS['SMPP_ROOT'].'/transport/ttransport.class.php';
-require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
+namespace Phpsmpp\Transport;
+//require_once $GLOBALS['SMPP_ROOT'].'/Transport/ttransport.class.php';
+//require_once $GLOBALS['SMPP_ROOT'].'/Transport/texception.class.php';
 
 /**
  * Sockets implementation of the TTransport interface.
  *
- * @package thrift.transport
+ * @package thrift.Transport
  */
 class TSocket extends TTransport {
 

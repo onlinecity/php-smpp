@@ -1,6 +1,7 @@
 <?php
-require_once $GLOBALS['SMPP_ROOT'].'/transport/tsocket.class.php';
-require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
+namespace Phpsmpp\Transport;
+/*//require_once $GLOBALS['SMPP_ROOT'].'/Transport/tsocket.class.php';
+//require_once $GLOBALS['SMPP_ROOT'].'/Transport/texception.class.php';*/
 
 /*
  * Licensed to the Apache Software Foundation (ASF) under one
@@ -20,7 +21,7 @@ require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
 * specific language governing permissions and limitations
 * under the License.
 *
-* @package thrift.transport
+* @package thrift.Transport
 */
 
 
@@ -43,7 +44,7 @@ if (!function_exists('apc_fetch')) {
  * Sockets implementation of the TTransport interface that allows connection
  * to a pool of servers.
  *
- * @package thrift.transport
+ * @package thrift.Transport
  */
 class TSocketPool extends TSocket {
 
