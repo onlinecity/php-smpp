@@ -16,7 +16,6 @@ class SmppPdu
     public $status;
     public $sequence;
     public $body;
-    public $isValid;
     public $tcpMessage;
 
     /**
@@ -26,7 +25,6 @@ class SmppPdu
      * @param integer $status
      * @param integer $sequence
      * @param string $body
-     * @param string $isValid
      * @param string $tcpMessage
      */
     public function __construct($id, $status, $sequence, $body, $isValid = true, $tcpMessage = null)
@@ -37,5 +35,10 @@ class SmppPdu
         $this->body = $body;
         $this->isValid = $isValid;
         $this->tcpMessage = $tcpMessage;
+    }
+
+    public function isValid()
+    {
+        return SMPP::command_id_valid($this->id) && SMPP::status_code_valid($this->status) && isset($this->sequence);
     }
 }

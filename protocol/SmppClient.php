@@ -163,15 +163,14 @@ class SmppClient
 		// Read pdu
 		do{
 			$pdu = $this->readPDU();
-			if ($pdu === false) return false; // Just in case
 			//check for enquire link command
-			if($pdu->id==SMPP::ENQUIRE_LINK) {
+			if($pdu != null && $pdu->isValid() && $pdu->id==SMPP::ENQUIRE_LINK) {
 				$response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
 				$this->sendPDU($response);
 			} else if ($pdu->id!=$command_id) { // if this is not the correct PDU add to queue
 				array_push($this->pdu_queue, $pdu);
 			}
-		} while($pdu && $pdu->id!=$command_id);
+		} while($pdu != null && $pdu->id!=$command_id);
 		
 		if($pdu) return $this->parseSMS($pdu);
 		return false;
@@ -514,7 +513,7 @@ class SmppClient
 		if($this->debug) {
 			call_user_func($this->debugHandler, "Send PDU         : $length bytes");
 			call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($header.$pdu->body),2," "));
-			call_user_func($this->debugHandler, ' command_id      : 0x'.dechex($pdu->id));
+			call_user_func($this->debugHandler, ' command_id      : 0x'.dechex($pdu->id). " ". SMPP::getCommandText($pdu->id));
 			call_user_func($this->debugHandler, ' sequence number : '.$pdu->sequence);
 		}
 		$this->transport->write($header.$pdu->body);
@@ -552,12 +551,12 @@ class SmppClient
 		// Read PDUs until the one we are looking for shows up, or a generic nack pdu with matching sequence or null sequence
 		do{
 			$pdu=$this->readPDU();
-			if ($pdu->isValid) {
+			if ($pdu != null && $pdu->isValid()) {
 				if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
 				if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
 				array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
 			}
-		} while($pdu);
+		} while($pdu != null);
 		return false;
 	}
 	
@@ -568,75 +567,46 @@ class SmppClient
 	protected function readPDU()
 	{
         $length = null;
+        $bufLength = null;
+        $bufHeaders = null;
         $command_id = null;
         $command_status = null;
         $sequence_number = null;
         $body = null;
 
-        try {
-            // Read PDU length
-            $bufLength = $this->transport->read(4);
+        // Read PDU length
+        $bufLength = $this->transport->read(4);
 
-            if ($this->debug) {
-                call_user_func($this->debugHandler, 'bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
-            }
-            extract(unpack("Nlength", $bufLength));
-
-            // Read PDU headers
-            $bufHeaders = $this->transport->read(12);
-
-            if ($this->debug) {
-                call_user_func($this->debugHandler, '$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
-            }
-            extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
-
-            // Read PDU body
-            if($length-16>0){
-                $body=$this->transport->readAll($length-16);
-                if(!$body) throw new RuntimeException('Could not read PDU body');
-            } else {
-                $body=null;
-            }
+        if ($this->debug) {
+            call_user_func($this->debugHandler, 'bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
         }
-        catch(\Exception $e) {
-            call_user_func($this->debugHandler, 'Error when reading PDU: '.$e);
+        extract(unpack("Nlength", $bufLength));
+
+        // Read PDU headers
+        $bufHeaders = $this->transport->read(12);
+
+        if ($this->debug) {
+            call_user_func($this->debugHandler, '$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
+        }
+        extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
+
+        // Read PDU body
+        if($length-16>0){
+            $body=$this->transport->readAll($length-16);
+            if(!$body) throw new RuntimeException('Could not read PDU body');
+        } else {
+            $body=null;
         }
 
         if($this->debug) {
             call_user_func($this->debugHandler, "Read PDU         : $length bytes");
             call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($bufLength.$bufHeaders.$body),2," "));
-            call_user_func($this->debugHandler, " command id      : 0x".dechex($command_id));
+            call_user_func($this->debugHandler, " command id      :".dechex($command_id)." ".SMPP::getCommandText($command_id));
             call_user_func($this->debugHandler, " command status  : 0x".dechex($command_status)." ".SMPP::getStatusMessage($command_status));
             call_user_func($this->debugHandler, ' sequence number : '.$sequence_number);
         }
 
-        $smppPdu = new SmppPdu($command_id, $command_status, $sequence_number, $body);
-
-        if(!SMPP::command_id_valid($command_id)) {
-            if($this->debug) {
-                call_user_func($this->debugHandler, 'Command id not valid');
-            }
-            $smppPdu->isValid = false;
-        }
-
-        if(!SMPP::status_code_valid($command_status)) {
-            if($this->debug) {
-                call_user_func($this->debugHandler, 'Command status not valid');
-            }
-            $smppPdu->isValid = false;
-        }
-
-        if(!isset($sequence_number)) {
-            if($this->debug) {
-                call_user_func($this->debugHandler, 'No sequence_number');
-            }
-            $smppPdu->isValid = false;
-        }
-
-        if(!$smppPdu->isValid) {
-            $smppPdu->tcpMessage = $length.$command_id.$command_status.$sequence_number.$body;
-        }
-
+        $smppPdu = new SmppPdu($command_id, $command_status, $sequence_number, $body, $bufLength.$bufHeaders.$body);
 		return $smppPdu;
 	}
 	
