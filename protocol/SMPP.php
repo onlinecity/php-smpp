@@ -228,7 +228,7 @@ class SMPP
     }
 
     public static function getCommandText($command_id) {
-        switch($command_id) {
+        switch("0x".dechex($command_id)) {
             case SMPP::GENERIC_NACK: return "Generic NACK";
             case SMPP::BIND_RECEIVER: return "Bind receiver";
             case SMPP::BIND_RECEIVER_RESP: return "Bind receiver response";
@@ -257,7 +257,7 @@ class SMPP
     }
 
     public static function command_id_valid($command_id) {
-        error_log("ICI: ".SMPP::getCommandText($command_id));
+        error_log("["."0x".dechex($command_id)."]:".SMPP::getCommandText($command_id));
         return SMPP::getCommandText($command_id) != null;
     }
 }
