@@ -129,8 +129,7 @@ class TSocket extends TTransport {
 	 */
 	public function setRecvTimeout($timeout) {
 		$this->recvTimeoutSec_ = floor($timeout / 1000);
-		$this->recvTimeoutUsec_ =
-		($timeout - ($this->recvTimeoutSec_ * 1000)) * 1000;
+		$this->recvTimeoutUsec_ = ($timeout - ($this->recvTimeoutSec_ * 1000)) * 1000;
 	}
 
 	/**

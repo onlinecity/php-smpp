@@ -167,6 +167,9 @@ class SMPP
     const STATE_UNKNOWN = 7;
     const STATE_REJECTED = 8;
 
+    public static function status_code_valid($statuscode) {
+        return SMPP::getStatusMessage($statuscode) != null;
+    }
 
     public static function getStatusMessage($statuscode)
     {
@@ -220,7 +223,41 @@ class SMPP
             case SMPP::ESME_RDELIVERYFAILURE: return 'Delivery Failure (data_sm_resp)';
             case SMPP::ESME_RUNKNOWNERR: return 'Unknown Error';
             default:
-                return 'Unknown statuscode: '.dechex($statuscode);
+                return null;
         }
+    }
+
+    public static function getCommandText($command_id) {
+        switch($command_id) {
+            case SMPP::GENERIC_NACK: return "Generic NACK";
+            case SMPP::BIND_RECEIVER: return "Bind receiver";
+            case SMPP::BIND_RECEIVER_RESP: return "Bind receiver response";
+            case SMPP::BIND_TRANSMITTER: return "Bind transmitter";
+            case SMPP::BIND_TRANSMITTER_RESP: return "Bind transmitter response";
+            case SMPP::QUERY_SM: return "Query SM";
+            case SMPP::QUERY_SM_RESP: return "Query SM response";
+            case SMPP::SUBMIT_SM: return "Submit SM";
+            case SMPP::SUBMIT_SM_RESP: return "Submit SM response";
+            case SMPP::DELIVER_SM: return "Delivery SM";
+            case SMPP::DELIVER_SM_RESP: return "Delivery SM response";
+            case SMPP::UNBIND: return "Unbind";
+            case SMPP::UNBIND_RESP: return "Unbind response";
+            case SMPP::REPLACE_SM: return "Replace SM";
+            case SMPP::REPLACE_SM_RESP: return "Replace SM response";
+            case SMPP::CANCEL_SM: return "Cancel SM";
+            case SMPP::CANCEL_SM_RESP: return "Cancel SM response";
+            case SMPP::BIND_TRANSCEIVER: return "Bind transceiver";
+            case SMPP::BIND_TRANSCEIVER_RESP: return "Bind transceiver response";
+            case SMPP::OUTBIND: return "Outbind";
+            case SMPP::ENQUIRE_LINK: return "Enquire Link";
+            case SMPP::ENQUIRE_LINK_RESP: return "Enquire Link response";
+            default:
+                return null;
+        }
+    }
+
+    public static function command_id_valid($command_id) {
+        error_log("ICI: ".SMPP::getCommandText($command_id));
+        return SMPP::getCommandText($command_id) != null;
     }
 }

@@ -16,6 +16,8 @@ class SmppPdu
     public $status;
     public $sequence;
     public $body;
+    public $isValid;
+    public $tcpMessage;
 
     /**
      * Create new generic PDU object
@@ -24,12 +26,16 @@ class SmppPdu
      * @param integer $status
      * @param integer $sequence
      * @param string $body
+     * @param string $isValid
+     * @param string $tcpMessage
      */
-    public function __construct($id, $status, $sequence, $body)
+    public function __construct($id, $status, $sequence, $body, $isValid = true, $tcpMessage = null)
     {
         $this->id = $id;
         $this->status = $status;
         $this->sequence = $sequence;
         $this->body = $body;
+        $this->isValid = $isValid;
+        $this->tcpMessage = $tcpMessage;
     }
 }
