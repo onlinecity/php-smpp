@@ -257,7 +257,6 @@ class SMPP
     }
 
     public static function command_id_valid($command_id) {
-        error_log("["."0x".dechex($command_id)."]:".SMPP::getCommandText($command_id));
         return SMPP::getCommandText($command_id) != null;
     }
 }

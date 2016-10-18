@@ -2,8 +2,10 @@
 namespace Phpsmpp\Protocol;
 
 use Phpsmpp\Transport\TTransport;
-//require_once $GLOBALS['SMPP_ROOT'].'/Transport/ttransport.class.php';
-	
+use Monolog\Logger;
+use Monolog\Handler\StreamHandler;
+use Psr\Log\LoggerInterface;
+
 /**
  * Class for receiving or sending sms through SMPP Protocol.
  * This is a reduced implementation of the SMPP Protocol, and as such not all features will or ought to be available.
@@ -56,13 +58,11 @@ class SmppClient
 	 * @var boolean
 	 */
 	public static $sms_use_msg_payload_for_csms=false;
-	
-	public $debug;
-	
+
 	protected $pdu_queue;
 	
 	protected $transport;
-	protected $debugHandler;
+    protected $logger;
 	
 	// Used for reconnect
 	protected $mode;
@@ -78,7 +78,7 @@ class SmppClient
 	 * @param TTransport $transport
 	 * @param string $debugHandler
 	 */
-	public function __construct(TTransport $transport,$debugHandler=null)
+	public function __construct(TTransport $transport, LoggerInterface $logger=null)
 	{
 		// Internal parameters
 		$this->sequence_number=1;
@@ -86,8 +86,14 @@ class SmppClient
 		$this->pdu_queue=array();
 		
 		$this->transport = $transport;
-		$this->debugHandler = $debugHandler ? $debugHandler : 'error_log';
 		$this->mode = null;
+
+        $this->logger = $logger;
+
+        if($logger == null) {
+            $this->logger = new Logger('smpp');
+            $this->logger->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
+        }
 	}
 	
 	/**
@@ -99,11 +105,11 @@ class SmppClient
 	public function bindReceiver($login, $pass)
 	{
 		if (!$this->transport->isOpen()) return false;
-		if($this->debug) call_user_func($this->debugHandler, 'Binding receiver...');
-		 
+        $this->logger->info('Binding receiver...');
+
 		$response = $this->_bind($login, $pass, SMPP::BIND_RECEIVER);
 		
-		if($this->debug) call_user_func($this->debugHandler, "Binding status  : ".$response->status);
+		$this->logger->info("Binding status: ".$response->status." ".SMPP::getStatusMessage($response->status));
 		$this->mode = 'receiver';
 		$this->login = $login;
 		$this->pass = $pass;
@@ -118,11 +124,11 @@ class SmppClient
 	public function bindTransmitter($login, $pass)
 	{
 		if (!$this->transport->isOpen()) return false;
-		if($this->debug) call_user_func($this->debugHandler, 'Binding transmitter...');
+		$this->logger->info('Binding transmitter...');
 		
 		$response = $this->_bind($login, $pass, SMPP::BIND_TRANSMITTER);
-		
-		if($this->debug) call_user_func($this->debugHandler, "Binding status  : ".$response->status);
+
+        $this->logger->info("Binding status  : ".$response->status);
 		$this->mode = 'transmitter';
 		$this->login = $login;
 		$this->pass = $pass;
@@ -134,11 +140,11 @@ class SmppClient
 	public function close()
 	{
 		if (!$this->transport->isOpen()) return;
-		if($this->debug) call_user_func($this->debugHandler, 'Unbinding...');
+        $this->logger->info('Unbinding...');
 		
 		$response=$this->sendCommand(SMPP::UNBIND,"");
-		
-		if($this->debug) call_user_func($this->debugHandler, "Unbind status   : ".$response->status);
+
+        $this->logger->info("Unbind status: ".$response->status);
 		$this->transport->close();
 	}
 	
@@ -439,8 +445,8 @@ class SmppClient
 		} else {
 			$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
 		}
-		
-		if($this->debug) call_user_func($this->debugHandler, "Received sms:\n".print_r($sms,true));
+
+        $this->logger->debug("Received sms:\n".print_r($sms,true));
 		
 		// Send response of recieving sms
 		$response = new SmppPdu(SMPP::DELIVER_SM_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
@@ -510,12 +516,12 @@ class SmppClient
 	{
 		$length=strlen($pdu->body) + 16;
 		$header=pack("NNNN", $length, $pdu->id, $pdu->status, $pdu->sequence);
-		if($this->debug) {
-			call_user_func($this->debugHandler, "Send PDU         : $length bytes");
-			call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($header.$pdu->body),2," "));
-			call_user_func($this->debugHandler, ' command_id      : 0x'.dechex($pdu->id). " ". SMPP::getCommandText($pdu->id));
-			call_user_func($this->debugHandler, ' sequence number : '.$pdu->sequence);
-		}
+
+        $this->logger->debug("Send PDU: $length bytes");
+        $this->logger->debug(' '.chunk_split(bin2hex($header.$pdu->body),2," "));
+        $this->logger->debug(' command_id: 0x'.dechex($pdu->id). " ". SMPP::getCommandText($pdu->id));
+        $this->logger->debug(' sequence number: '.$pdu->sequence);
+
 		$this->transport->write($header.$pdu->body);
 	}
 	
@@ -576,18 +582,14 @@ class SmppClient
 
         // Read PDU length
         $bufLength = $this->transport->read(4);
+        $this->logger->debug('bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
 
-        if ($this->debug) {
-            call_user_func($this->debugHandler, 'bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
-        }
         extract(unpack("Nlength", $bufLength));
 
         // Read PDU headers
         $bufHeaders = $this->transport->read(12);
+        $this->logger->debug('$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
 
-        if ($this->debug) {
-            call_user_func($this->debugHandler, '$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
-        }
         extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
 
         // Read PDU body
@@ -598,13 +600,11 @@ class SmppClient
             $body=null;
         }
 
-        if($this->debug) {
-            call_user_func($this->debugHandler, "Read PDU         : $length bytes");
-            call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($bufLength.$bufHeaders.$body),2," "));
-            call_user_func($this->debugHandler, " command id      :".dechex($command_id)." ".SMPP::getCommandText($command_id));
-            call_user_func($this->debugHandler, " command status  : 0x".dechex($command_status)." ".SMPP::getStatusMessage($command_status));
-            call_user_func($this->debugHandler, ' sequence number : '.$sequence_number);
-        }
+        $this->logger->debug("Read PDU         : $length bytes");
+        $this->logger->debug(' '.chunk_split(bin2hex($bufLength.$bufHeaders.$body),2," "));
+        $this->logger->debug(" command id      :".dechex($command_id)." ".SMPP::getCommandText($command_id));
+        $this->logger->debug(" command status  : 0x".dechex($command_status)." ".SMPP::getStatusMessage($command_status));
+        $this->logger->debug(' sequence number : '.$sequence_number);
 
         $smppPdu = new SmppPdu($command_id, $command_status, $sequence_number, $body, $bufLength.$bufHeaders.$body);
 		return $smppPdu;
@@ -665,12 +665,12 @@ class SmppClient
 		
 		$value = $this->getOctets($ar,$length);
 		$tag = new SmppTag($id, $value, $length);
-		if ($this->debug) {
-			call_user_func($this->debugHandler, "Parsed tag:");
-			call_user_func($this->debugHandler, " id     :0x".dechex($tag->id));
-			call_user_func($this->debugHandler, " length :".$tag->length);
-			call_user_func($this->debugHandler, " value  :".chunk_split(bin2hex($tag->value),2," "));
-		}
+
+        $this->logger->debug("Parsed tag:");
+        $this->logger->debug(" id     :0x".dechex($tag->id));
+        $this->logger->debug(" length :".$tag->length);
+        $this->logger->debug(" value  :".chunk_split(bin2hex($tag->value),2," "));
+
 		return $tag;
 	}
 	

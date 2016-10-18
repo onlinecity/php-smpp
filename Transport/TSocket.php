@@ -2,6 +2,9 @@
 namespace Phpsmpp\Transport;
 //require_once $GLOBALS['SMPP_ROOT'].'/Transport/ttransport.class.php';
 //require_once $GLOBALS['SMPP_ROOT'].'/Transport/texception.class.php';
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
+use Psr\Log\LoggerInterface;
 
 /**
  * Sockets implementation of the TTransport interface.
@@ -74,19 +77,7 @@ class TSocket extends TTransport {
 	 */
 	protected $persist_ = FALSE;
 
-	/**
-	 * Debugging on?
-	 *
-	 * @var bool
-	 */
-	protected $debug_ = FALSE;
-
-	/**
-	 * Debug handler
-	 *
-	 * @var mixed
-	 */
-	protected $debugHandler_ = null;
+    protected $logger = null;
 
 	/**
 	 * Socket constructor
@@ -96,11 +87,16 @@ class TSocket extends TTransport {
 	 * @param bool   $persist      Whether to use a persistent socket
 	 * @param string $debugHandler Function to call for error logging
 	 */
-	public function __construct($host='localhost',$port=9090,$persist=FALSE,$debugHandler=null) {
+	public function __construct($host='localhost',$port=9090,$persist=FALSE, LoggerInterface $logger=null) {
 		$this->host_ = $host;
 		$this->port_ = $port;
 		$this->persist_ = $persist;
-		$this->debugHandler_ = $debugHandler ? $debugHandler : 'error_log';
+        $this->logger = $logger;
+
+        if($logger == null) {
+            $this->logger = new Logger('smpp');
+            $this->logger->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
+        }
 	}
 
 	/**
@@ -131,16 +127,6 @@ class TSocket extends TTransport {
 		$this->recvTimeoutSec_ = floor($timeout / 1000);
 		$this->recvTimeoutUsec_ = ($timeout - ($this->recvTimeoutSec_ * 1000)) * 1000;
 	}
-
-	/**
-	 * Sets debugging output on or off
-	 *
-	 * @param bool $debug
-	 */
-	public function setDebug($debug) {
-		$this->debug_ = $debug;
-	}
-
 	/**
 	 * Get the host that this socket is connected to
 	 *
@@ -201,9 +187,8 @@ class TSocket extends TTransport {
 		// Connect failed?
 		if ($this->handle_ === FALSE) {
 			$error = 'TSocket: Could not connect to '.$this->host_.':'.$this->port_.' ('.$errstr.' ['.$errno.'])';
-			if ($this->debug_) {
-				call_user_func($this->debugHandler_, $error);
-			}
+            $this->logger->error($error);
+
 			throw new TException($error);
 		}
 	}
