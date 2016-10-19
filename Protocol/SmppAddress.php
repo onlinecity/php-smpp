@@ -35,4 +35,8 @@ class SmppAddress
         $this->ton = $ton;
         $this->npi = $npi;
     }
+
+    public function toString() {
+        return "value: [". $this->value ."], ton: [". $this->ton ."], npi: [". $this->npi ."]";
+    }
 }
