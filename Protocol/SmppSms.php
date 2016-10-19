@@ -24,6 +24,11 @@ class SmppSms extends SmppPdu
     public $message;
     public $tags;
 
+    //Used for multi-part SMS
+    public $message_identifier;
+    public $message_parts;
+    public $message_part_number;
+
     // Unused in deliver_sm
     public $scheduleDeliveryTime;
     public $validityPeriod;
@@ -54,6 +59,7 @@ class SmppSms extends SmppPdu
      */
     public function __construct($id, $status, $sequence, $body, $service_type, SmppAddress $source, SmppAddress $destination,
                                 $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags,
+                                $message_identifier = null, $message_parts = null, $message_part_number = null,
                                 $scheduleDeliveryTime=null, $validityPeriod=null, $smDefaultMsgId=null, $replaceIfPresentFlag=null)
     {
         parent::__construct($id, $status, $sequence, $body);
@@ -67,6 +73,9 @@ class SmppSms extends SmppPdu
         $this->dataCoding = $dataCoding;
         $this->message = $message;
         $this->tags = $tags;
+        $this->message_identifier = $message_identifier;
+        $this->message_parts = $message_parts;
+        $this->message_part_number = $message_part_number;
         $this->scheduleDeliveryTime = $scheduleDeliveryTime;
         $this->validityPeriod = $validityPeriod;
         $this->smDefaultMsgId = $smDefaultMsgId;

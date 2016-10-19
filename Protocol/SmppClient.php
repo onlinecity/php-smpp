@@ -426,7 +426,25 @@ class SmppClient
 		$dataCoding = next($ar);
 		next($ar); // sm_default_msg_id 
 		$sm_length = next($ar);
-		$message = $this->getString($ar,$sm_length);
+
+        $message_identifier = null;
+        $message_parts = null;
+        $message_part_number = null;
+
+        if (($esmClass & SMPP::ESM_UHDI) != 0) {
+            //we are receiving a multi-part SMS
+            $udh_length = next($ar); //UDH lenght
+            next($ar);//unknown
+            next($ar);//unknown
+            $message_identifier = next($ar);//message identifier
+            $message_parts = next($ar);//number of parts in this multi-part SMS
+            $message_part_number = next($ar);//current SMS part number
+
+            $message = $this->getString($ar,$sm_length-$udh_length);
+        }
+        else {
+            $message = $this->getString($ar, $sm_length);
+        }
 		
 		// Check for optional params, and parse them
 		if (current($ar) !== false) {
@@ -443,7 +461,7 @@ class SmppClient
 			$sms = new SmppDeliveryReceipt($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
 			$sms->parseDeliveryReceipt();
 		} else {
-			$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
+			$sms = new SmppSms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags, $message_identifier, $message_parts, $message_part_number);
 		}
 
         $this->logger->debug("Received sms:\n".print_r($sms,true));
