@@ -167,15 +167,17 @@ class SmppClient
 			}
 		}
 		// Read pdu
-		do{
-			$pdu = $this->readPDU();
-			//check for enquire link command
-			if($pdu != null && $pdu->isValid() && $pdu->id==SMPP::ENQUIRE_LINK) {
-				$response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
-				$this->sendPDU($response);
-			} else if ($pdu->id!=$command_id) { // if this is not the correct PDU add to queue
-				array_push($this->pdu_queue, $pdu);
-			}
+		do {
+            $pdu = $this->readPDU();
+            //check for enquire link command
+            if ($pdu != null && $pdu->isValid()) {
+                if ($pdu->id == SMPP::ENQUIRE_LINK) {
+                    $response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
+                    $this->sendPDU($response);
+                } else if ($pdu->id != $command_id) { // if this is not the correct PDU add to queue
+                    array_push($this->pdu_queue, $pdu);
+                }
+            }
 		} while($pdu != null && $pdu->id!=$command_id);
 		
 		if($pdu) return $this->parseSMS($pdu);
