@@ -385,7 +385,15 @@ class SmppClient
 		);
 		
 		$response=$this->sendCommand($command_id,$pduBody);
-		if ($response->status != SMPP::ESME_ROK) throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
+
+		if ($response->status != SMPP::ESME_ROK) {
+		    if($response->status == SMPP::ESME_RBINDFAIL) {
+                throw new BindFailedException(SMPP::getStatusMessage($response->status), $response->status);
+            }
+            else {
+                throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
+            }
+        }
 		
 		return $response;
 	}
