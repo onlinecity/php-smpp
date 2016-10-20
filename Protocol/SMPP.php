@@ -152,6 +152,18 @@ class SMPP
     const DATA_CODING_ISO2022_JP = 10; // Music codes
     const DATA_CODING_KANJI = 13; // Extended Kanji JIS
     const DATA_CODING_KSC5601 = 14;
+    const DATA_CODING_GSM_03_38 = 20; //GSM 03.38
+
+    const ENCODING_DEFAULT_NAME = "Default";
+    const ENCODING_ISO8859_1_NAME = "ISO-8859-1";
+    const ENCODING_JIS_NAME = "JIS";
+    const ENCODING_ISO8859_5_NAME = "ISO-8859-5";
+    const ENCODING_ISO8859_8_NAME = "ISO-8859-8";
+    const ENCODING_UCS2_NAME = "UCS-2";
+    const ENCODING_ISO2022_JP_NAME = "ISO-2022-JP";
+    const ENCODING_KANJI_NAME = "MS_Kanji";
+    const ENCODING_GSM_03_38_NAME = "GSM 03.38";
+    const ENCODING_UTF8_NAME = "utf-8";
 
     // SMPP v3.4 - 5.2.25 page 129
     const DEST_FLAG_SME = 1;
@@ -258,5 +270,53 @@ class SMPP
 
     public static function command_id_valid($command_id) {
         return SMPP::getCommandText($command_id) != null;
+    }
+
+    public static function getEncodingName($encoding_id) {
+        switch($encoding_id) {
+            case self::DATA_CODING_ISO8859_1:
+                return self::ENCODING_ISO8859_1_NAME;
+            case self::DATA_CODING_JIS:
+                return self::ENCODING_JIS_NAME;
+            case self::DATA_CODING_ISO8859_5:
+                return self::ENCODING_ISO8859_5_NAME;
+            case self::DATA_CODING_ISO8859_8:
+                return self::ENCODING_ISO8859_8_NAME;
+            case self::DATA_CODING_UCS2:
+                return self::ENCODING_UCS2_NAME;
+            case self::DATA_CODING_ISO2022_JP:
+                return self::ENCODING_ISO2022_JP_NAME;
+            case self::DATA_CODING_KANJI:
+                return self::ENCODING_KANJI_NAME;
+            case self::DATA_CODING_DEFAULT:
+            case self::DATA_CODING_IA5:
+            case self::DATA_CODING_BINARY_ALIAS:
+            case self::DATA_CODING_BINARY:
+            case self::DATA_CODING_PICTOGRAM:
+            case self::DATA_CODING_KSC5601:
+            default:
+                return self::ENCODING_DEFAULT_NAME;
+        }
+    }
+
+    public static function getEncodingId($encoding_name) {
+        switch($encoding_name) {
+            case self::ENCODING_ISO8859_1_NAME:
+                return self::DATA_CODING_ISO8859_1;
+            case self::ENCODING_JIS_NAME:
+                return self::DATA_CODING_JIS;
+            case self::ENCODING_ISO8859_5_NAME:
+                return self::DATA_CODING_ISO8859_5;
+            case self::ENCODING_ISO8859_8_NAME:
+                return self::DATA_CODING_ISO8859_8;
+            case self::ENCODING_UCS2_NAME:
+                return self::DATA_CODING_UCS2;
+            case self::ENCODING_ISO2022_JP_NAME:
+                return self::DATA_CODING_ISO2022_JP;
+            case self::ENCODING_KANJI_NAME:
+                return self::DATA_CODING_KANJI;
+            default:
+                return self::DATA_CODING_DEFAULT;
+        }
     }
 }

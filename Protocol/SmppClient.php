@@ -45,6 +45,9 @@ class SmppClient
 	public static $sms_registered_delivery_flag=0x00;
 	public static $sms_replace_if_present_flag=0x00;
 	public static $sms_sm_default_msg_id=0x00;
+
+    //Default encoding name when we receive/send SMS with the SMPP encoding 0x0 (Default)
+    public $default_encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
 	
 	/**
 	 * SMPP v3.4 says octect string are "not necessarily NULL terminated".
@@ -155,6 +158,8 @@ class SmppClient
 	 */
 	public function readSMS()
 	{
+        $this->logger->info("Waiting for incoming SMS...");
+
 		$command_id=SMPP::DELIVER_SM;
 		// Check the queue
 		$ql = count($this->pdu_queue);
@@ -163,7 +168,10 @@ class SmppClient
 			if($pdu->id==$command_id) {
 				//remove response
 				array_splice($this->pdu_queue, $i, 1);
-				return $this->parseSMS($pdu);
+
+                $sms = $this->parseSMS($pdu);
+                $this->logger->info("Received one sms from ".$sms->getSourceNumberPhone());
+				return $sms;
 			}
 		}
 		// Read pdu
@@ -180,9 +188,29 @@ class SmppClient
             }
 		} while($pdu != null && $pdu->id!=$command_id);
 		
-		if($pdu) return $this->parseSMS($pdu);
+		if($pdu) {
+            $sms = $this->parseSMS($pdu);
+            $this->logger->info("Received one sms from ".$sms->getSourceNumberPhone());
+            return $sms;
+        }
 		return false;
 	}
+
+	public function sendSMS(SmppAddress $from, SmppAddress $to, $message) {
+        $encoding_name = GsmEncoder::getMostFittingEncoding($message);
+
+        if($encoding_name == SMPP::ENCODING_GSM_03_38_NAME && $this->default_encoding_name != SMPP::ENCODING_GSM_03_38_NAME) {
+            $encoding_name = SMPP::ENCODING_ISO8859_1_NAME;
+        }
+        $encodedMessage = GsmEncoder::utf8_to_other($encoding_name, $message);
+
+        if($encoding_name == $this->default_encoding_name) {
+            $encoding_name = SMPP::ENCODING_DEFAULT_NAME;
+        }
+        $coding = SMPP::getEncodingId($encoding_name);
+
+        return $this->sendSMSFullParam($from,$to,$encodedMessage, null, $coding);
+    }
 	
 	/**
 	 * Send one SMS to SMSC. Can be executed only after bindTransmitter() call.
@@ -200,7 +228,7 @@ class SmppClient
 	 * @param string $validityPeriod (optional)
 	 * @return string message id
 	 */
-	public function sendSMS(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+	public function sendSMSFullParam(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		$msg_length = strlen($message);
 		
@@ -211,7 +239,7 @@ class SmppClient
 				$singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
 				$csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
 				break;
-			case SMPP::DATA_CODING_DEFAULT:
+            case SMPP::DATA_CODING_DEFAULT:
 				$singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
 				$csmsSplit = 152; // send 152 chars in each SMS since, we will use 16-bit CSMS ids (SMSC will format data)
 				break;
@@ -450,10 +478,10 @@ class SmppClient
             $message_parts = next($ar);//number of parts in this multi-part SMS
             $message_part_number = next($ar);//current SMS part number
 
-            $message = $this->getString($ar,$sm_length-$udh_length);
+            $message = $this->getMessage($ar,$sm_length-$udh_length, $dataCoding);
         }
         else {
-            $message = $this->getString($ar, $sm_length);
+            $message = $this->getMessage($ar, $sm_length, $dataCoding);
         }
 		
 		// Check for optional params, and parse them
@@ -545,10 +573,12 @@ class SmppClient
 		$length=strlen($pdu->body) + 16;
 		$header=pack("NNNN", $length, $pdu->id, $pdu->status, $pdu->sequence);
 
-        $this->logger->debug("Send PDU: $length bytes");
+        /*$this->logger->debug("Send PDU: $length bytes");
         $this->logger->debug(' '.chunk_split(bin2hex($header.$pdu->body),2," "));
         $this->logger->debug(' command_id: 0x'.dechex($pdu->id). " ". SMPP::getCommandText($pdu->id));
-        $this->logger->debug(' sequence number: '.$pdu->sequence);
+        $this->logger->debug(' sequence number: '.$pdu->sequence);*/
+
+        $this->logger->debug("Send PDU: ".$pdu->toString());
 
 		$this->transport->write($header.$pdu->body);
 	}
@@ -608,7 +638,7 @@ class SmppClient
         $sequence_number = null;
         $body = null;
 
-        $this->logger->info("Waiting for incoming PDU...");
+        $this->logger->debug("Waiting for incoming PDU...");
 
         // Read PDU length
         $bufLength = $this->transport->read(4);
@@ -679,6 +709,28 @@ class SmppClient
 		} while($i<$maxlen && $c !=0);
 		return $s;
 	}
+
+	protected function getMessage(&$ar, $maxlen=255, $encoding_id, $firstRead=false) {
+        $encodingName = SMPP::getEncodingName($encoding_id);
+
+        if($encodingName == SMPP::ENCODING_DEFAULT_NAME) {
+            $encoding = $this->default_encoding_name;
+        }
+        else {
+            $encoding = $encodingName;
+        }
+
+	    $s="";
+        $i=0;
+        do{
+            $c = ($firstRead && $i==0) ? current($ar) : next($ar);
+            $s .= chr($c);
+            $i++;
+        } while($i<$maxlen);
+
+        $str = GsmEncoder::other_to_utf8($encoding, $s);
+        return $str;
+    }
 	
 	/**
 	 * Read a specific number of octets from the char array.

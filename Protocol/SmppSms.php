@@ -83,7 +83,14 @@ class SmppSms extends SmppPdu
     }
 
     public function toString() {
-        return "service_type: [". $this->service_type ."], source: [". $this->source->toString() ."], destination: [". $this->destination->toString() ."], esmClass: [". $this->esmClass ."], protocolId: [". $this->protocolId ."], priorityFlag: [". $this->priorityFlag ."], registeredDelivery: [". $this->registeredDelivery ."], dataCoding: [". $this->dataCoding ."], message: [". $this->message ."], tags: [". $this->tags ."], message_identifier: [". $this->message_identifier ."], message_parts: [". $this->message_parts ."], message_part_number: [". $this->message_part_number ."], scheduleDeliveryTime: [". $this->scheduleDeliveryTime ."], validityPeriod: [". $this->validityPeriod ."], smDefaultMsgId: [". $this->smDefaultMsgId ."], replaceIfPresentFlag: [". $this->replaceIfPresentFlag ."]";
+        return "service_type: [". $this->service_type ."], source: [". $this->source->toString() ."], destination: [". $this->destination->toString() ."], esmClass: [". $this->esmClass ."], protocolId: [". $this->protocolId ."], priorityFlag: [". $this->priorityFlag ."], registeredDelivery: [". $this->registeredDelivery ."], dataCoding: [". $this->dataCoding ."], message: [". $this->message ."], tags: [". implode(";", $this->tags) ."], message_identifier: [". $this->message_identifier ."], message_parts: [". $this->message_parts ."], message_part_number: [". $this->message_part_number ."], scheduleDeliveryTime: [". $this->scheduleDeliveryTime ."], validityPeriod: [". $this->validityPeriod ."], smDefaultMsgId: [". $this->smDefaultMsgId ."], replaceIfPresentFlag: [". $this->replaceIfPresentFlag ."]";
     }
 
+    public function getSourceNumberPhone() {
+        if($this->source != null && $this->source->value != null) {
+            return $this->source->value;
+        }
+
+        return "unknown";
+    }
 }

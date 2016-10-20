@@ -42,6 +42,10 @@ class SmppPdu
     }
 
     public function toString() {
-        return "Command_id: [". dechex($this->id) ."] (". SMPP::getCommandText($this->id) ."), status: [". dechex($this->status) ."]  (". SMPP::getStatusMessage($this->status) ."), sequence: [". $this->sequence ."], body: [". bin2hex($this->body)."] (". $this->body  ."), tcpMessage: [". bin2hex($this->tcpMessage) ."] (". $this->tcpMessage ."), isValid: [". $this->isValid() ."]";
+        return "Length: [". $this->getLength() ."], command_id: [". dechex($this->id) ."] (". SMPP::getCommandText($this->id) ."), status: [". dechex($this->status) ."]  (". SMPP::getStatusMessage($this->status) ."), sequence: [". $this->sequence ."], body: [". bin2hex($this->body)."] (". $this->body  ."), tcpMessage: [". bin2hex($this->tcpMessage) ."] (". $this->tcpMessage ."), isValid: [". $this->isValid() ."]";
+    }
+
+    public function getLength() {
+        return 4 + strlen($this->id) + strlen($this->status) + strlen($this->sequence) + strlen($this->body);
     }
 }

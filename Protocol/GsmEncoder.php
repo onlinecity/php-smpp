@@ -1,5 +1,7 @@
 <?php
 namespace Phpsmpp\Protocol;
+
+
 /**
  * Class capable of encoding GSM 03.38 default alphabet and packing octets into septets as described by GSM 03.38.
  * Based on mapping: http://www.unicode.org/Public/MAPPINGS/ETSI/GSM0338.TXT
@@ -10,6 +12,19 @@ namespace Phpsmpp\Protocol;
  */
 class GsmEncoder
 {
+    /**
+     * @param $utf8str
+     * @return string the encoded string if the given string fit in the GSM 03.38 encoding (7 bit), or false
+     */
+    public static function utf8_to_gsm_03_38($utf8str) {
+        $gsm_03_38 = self::utf8_to_gsm0338($utf8str);
+        $containsQuestionMark = (strpos($gsm_03_38, '?') !== false);
+
+        if($containsQuestionMark) {
+            return false;
+        }
+        return $gsm_03_38;
+    }
 	
 	/**
 	 * Encode an UTF-8 string into GSM 03.38
@@ -22,7 +37,7 @@ class GsmEncoder
 	 * @param string $string
 	 * @return string
 	 */
-	public static function utf8_to_gsm0338($string)
+	protected static function utf8_to_gsm0338($string)
 	{
 		$dict = array(
 			'@' => "\x00", '£' => "\x01", '$' => "\x02", '¥' => "\x03", 'è' => "\x04", 'é' => "\x05", 'ù' => "\x06", 'ì' => "\x07", 'ò' => "\x08", 'Ç' => "\x09", 'Ø' => "\x0B", 'ø' => "\x0C", 'Å' => "\x0E", 'å' => "\x0F",
@@ -40,6 +55,97 @@ class GsmEncoder
 		// Replace unconverted UTF-8 chars from codepages U+0080-U+07FF, U+0080-U+FFFF and U+010000-U+10FFFF with a single ?
 		return preg_replace('/([\\xC0-\\xDF].)|([\\xE0-\\xEF]..)|([\\xF0-\\xFF]...)/m','?',$converted);
 	}
+
+    public static function gsm0338_to_utf8($string)
+    {
+        $dict = array(
+            "\x00" => '@', "\x01" => '£', "\x02" => '$', "\x03" => '¥', "\x04" => 'è',
+            "\x05" => 'é', "\x06" => 'ù', "\x07" => 'ì', "\x08" => 'ò', "\x09" => 'Ç',
+            "\x0B" => 'Ø', "\x0C" => 'ø', "\x0E" => 'Å', "\x0F" => 'å', "\x10" => 'Δ',
+            "\x11" => '_', "\x12" => 'Φ', "\x13" => 'Γ', "\x14" => 'Λ', "\x15" => 'Ω',
+            "\x16" => 'Π', "\x17" => 'Ψ', "\x18" => 'Σ', "\x19" => 'Θ', "\x1A" => 'Ξ',
+            "\x1C" => 'Æ', "\x1D" => 'æ', "\x1E" => 'ß', "\x1F" => 'É', "\x5B" => 'Ä',
+            "\x5C" => 'Ö', "\x5D" => 'Ñ', "\x5E" => 'Ü', "\x5F" => '§', "\x60" => '¿',
+            "\x7B" => 'ä', "\x7C" => 'ö', "\x7D" => 'ñ', "\x7E" => 'ü', "\x7F" => 'à',
+            "\x1B\x14" => '^', "\x1B\x28" => '{', "\x1B\x29" => '}', "\x1B\x2F" => '\\',
+            "\x1B\x3C" => '[', "\x1B\x3D" => '~', "\x1B\x3E" => ']', "\x1B\x40" => '|',
+            "\x1B\x65" => '€'
+        );
+        $converted = strtr($string, $dict);
+
+        return $converted;
+    }
+
+    public static function other_to_utf8($encoding, $string) {
+        if($encoding == SMPP::ENCODING_GSM_03_38_NAME) {
+            return self::gsm0338_to_utf8($string);
+        }
+
+        return mb_convert_encoding($string, SMPP::ENCODING_UTF8_NAME, $encoding);
+    }
+
+    public static function utf8_to_other($encoding, $string) {
+        if($encoding == SMPP::ENCODING_GSM_03_38_NAME) {
+            return self::utf8_to_gsm_03_38($string);
+        }
+
+        return mb_convert_encoding($string, $encoding, SMPP::ENCODING_UTF8_NAME);
+    }
+
+    public static function byte_unicode_to_utf8($byteChar) {
+        return self::hexa_unicode_to_utf8(strtoupper(dechex($byteChar)));
+    }
+
+    public static function hexa_unicode_to_utf8($hexaChar) {
+        return html_entity_decode("&#x".$hexaChar.";", ENT_QUOTES, 'UTF-8');
+    }
+
+    public static function utf8_to_usc2($utf8str) {
+        return mb_convert_encoding($utf8str, "UCS-2", "UTF-8");
+    }
+
+    /**
+     * Returns the most appropriated encoding for the given string
+     * @param $utf8str
+     */
+    public static function getMostFittingEncoding($utf8str) {
+        $encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
+        $i = 0;
+
+        $sevenBitsInt = hexdec("7F"); //UTF-8 hexa. Corresponds to "FF"
+        $heightBitsInt = hexdec("C3BF"); //UTF-8 hexa. Corresponds to "FF"
+        $length = mb_strlen($utf8str, SMPP::ENCODING_UTF8_NAME);
+
+        while($encoding_name != SMPP::ENCODING_UCS2_NAME && $i < $length) {
+            $char = mb_substr($utf8str, $i, 1, SMPP::ENCODING_UTF8_NAME);
+
+            if($encoding_name == SMPP::ENCODING_GSM_03_38_NAME) {
+                if(self::utf8_to_gsm_03_38($char)) {
+                    $i++;
+                    continue;
+                }
+            }
+
+            $charHex = unpack('H*', $char);
+            $charInt = hexdec($charHex[1]);
+
+            /*if($charInt > $heightBitsInt) {
+                $encoding_name = SMPP::ENCODING_UCS2_NAME;
+            }
+            else if($charInt > $sevenBitsInt) {
+                $encoding_name = SMPP::ENCODING_ISO8859_1_NAME;
+            }*/
+
+            //issues with ISO8859_1 --> if the character needs more than 7 bits --> UCS2
+            if($charInt > $sevenBitsInt) {
+                $encoding_name = SMPP::ENCODING_UCS2_NAME;
+            }
+
+            $i++;
+        }
+
+        return $encoding_name;
+    }
 	
 	/**
 	 * Count the number of GSM 03.38 chars a conversion would contain.
