@@ -112,7 +112,7 @@ class GsmEncoder
         $encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
         $i = 0;
 
-        $sevenBitsInt = hexdec("7F"); //UTF-8 hexa. Corresponds to "FF"
+        $sevenBitsInt = hexdec("7F"); //UTF-8 hexa.
         $heightBitsInt = hexdec("C3BF"); //UTF-8 hexa. Corresponds to "FF"
         $length = mb_strlen($utf8str, SMPP::ENCODING_UTF8_NAME);
 

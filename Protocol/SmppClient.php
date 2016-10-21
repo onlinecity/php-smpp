@@ -31,20 +31,20 @@ use Psr\Log\LoggerInterface;
 class SmppClient
 {
 	// SMPP bind parameters
-	public static $system_type=null;
-	public static $interface_version=0x34;
-	public static $addr_ton=0x1;
-	public static $addr_npi=0x1;
-	public static $address_range="";
+	public $system_type=null;
+	public $interface_version=0x34;
+	public $addr_ton=0x1;
+	public $addr_npi=0x1;
+	public $address_range="";
 	
 	// ESME transmitter parameters
-	public static $sms_service_type="";
-	public static $sms_esm_class=0x00;
-	public static $sms_protocol_id=0x00;
-	public static $sms_priority_flag=0x00;
-	public static $sms_registered_delivery_flag=0x00;
-	public static $sms_replace_if_present_flag=0x00;
-	public static $sms_sm_default_msg_id=0x00;
+	public $sms_service_type="";
+	public $sms_esm_class=0x00;
+	public $sms_protocol_id=0x00;
+	public $sms_priority_flag=0x00;
+	public $sms_registered_delivery_flag=0x00;
+	public $sms_replace_if_present_flag=0x00;
+	public $sms_sm_default_msg_id=0x00;
 
     //Default encoding name when we receive/send SMS with the SMPP encoding 0x0 (Default)
     public $default_encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
@@ -54,13 +54,13 @@ class SmppClient
 	 * Switch to toggle this feature
 	 * @var boolean
 	 */
-	public static $sms_null_terminate_octetstrings=false;
+	public $sms_null_terminate_octetstrings=false;
 	
 	/**
 	 * Use the optional param, message_payload to send concatenated SMSes?
 	 * @var boolean
 	 */
-	public static $sms_use_msg_payload_for_csms=false;
+	public $sms_use_msg_payload_for_csms=false;
 
 	protected $pdu_queue;
 	
@@ -144,7 +144,7 @@ class SmppClient
 	{
 		if (!$this->transport->isOpen()) return;
         $this->logger->info('Unbinding...');
-		
+
 		$response=$this->sendCommand(SMPP::UNBIND,"");
 
         $this->logger->info("Unbind status: ".$response->status);
@@ -251,7 +251,7 @@ class SmppClient
 		// Figure out if we need to do CSMS, since it will affect our PDU
 		if ($msg_length > $singleSmsOctetLimit) {
 			$doCsms = true;
-			if (!self::$sms_use_msg_payload_for_csms) {
+			if (!$this->sms_use_msg_payload_for_csms) {
 				$parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
 				$short_message = reset($parts);
 				$csmsReference = $this->getCsmsReference();
@@ -263,7 +263,7 @@ class SmppClient
 		
 		// Deal with CSMS
 		if ($doCsms) {
-			if (self::$sms_use_msg_payload_for_csms) {
+			if ($this->sms_use_msg_payload_for_csms) {
 				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
 				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
 			} else {
@@ -300,23 +300,23 @@ class SmppClient
 	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		// Construct PDU with mandatory fields
-		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
-			self::$sms_service_type,
+		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+($this->sms_null_terminate_octetstrings ? 1 : 0)),
+			$this->sms_service_type,
 			$source->ton,
 			$source->npi,
 			$source->value,
 			$destination->ton,
 			$destination->npi,
 			$destination->value,
-			self::$sms_esm_class,
-			self::$sms_protocol_id,
+			$this->sms_esm_class,
+			$this->sms_protocol_id,
 			$priority,
 			$scheduleDeliveryTime,
 			$validityPeriod,
-			self::$sms_registered_delivery_flag,
-			self::$sms_replace_if_present_flag,
+			$this->sms_registered_delivery_flag,
+			$this->sms_replace_if_present_flag,
 			$dataCoding,
-			self::$sms_sm_default_msg_id,
+			$this->sms_sm_default_msg_id,
 			strlen($short_message),//sm_length
 			$short_message//short_message
 		);
@@ -407,11 +407,11 @@ class SmppClient
 		$pduBody = pack(
 			'a'.(strlen($login)+1).
 			'a'.(strlen($pass)+1).
-			'a'.(strlen(self::$system_type)+1).
-			'CCCa'.(strlen(self::$address_range)+1),
-			$login, $pass, self::$system_type,
-			self::$interface_version, self::$addr_ton,
-			self::$addr_npi, self::$address_range
+			'a'.(strlen($this->system_type)+1).
+			'CCCa'.(strlen($this->address_range)+1),
+			$login, $pass, $this->system_type,
+			$this->interface_version, $this->addr_ton,
+			$this->addr_npi, $this->address_range
 		);
 		
 		$response=$this->sendCommand($command_id,$pduBody);

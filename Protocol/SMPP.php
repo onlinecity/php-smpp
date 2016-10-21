@@ -109,6 +109,7 @@ class SMPP
     const NPI_WAPCLIENT = 0x12;
 
     // ESM bits 1-0 - SMPP v3.4 - 5.2.12 page 121-122
+    const ESM_SUBMIT_MODE_DEFAULT = 0x00;
     const ESM_SUBMIT_MODE_DATAGRAM = 0x01;
     const ESM_SUBMIT_MODE_FORWARD = 0x02;
     const ESM_SUBMIT_MODE_STOREANDFORWARD = 0x03;
@@ -178,6 +179,12 @@ class SMPP
     const STATE_ACCEPTED = 6;
     const STATE_UNKNOWN = 7;
     const STATE_REJECTED = 8;
+
+    //Priority flag - 5.2.14 page 123
+    const SMS_PRIORITY_NORMAL = 0x00;
+    const SMS_PRIORITY_INTERACTIVE = 0x01;
+    const SMS_PRIORITY_URGENT = 0x02;
+    const SMS_PRIORITY_EMERGENCY = 0x03;
 
     public static function status_code_valid($statuscode) {
         return SMPP::getStatusMessage($statuscode) != null;
