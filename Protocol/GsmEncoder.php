@@ -18,9 +18,11 @@ class GsmEncoder
      */
     public static function utf8_to_gsm_03_38($utf8str) {
         $gsm_03_38 = self::utf8_to_gsm0338($utf8str);
-        $containsQuestionMark = (strpos($gsm_03_38, '?') !== false);
 
-        if($containsQuestionMark) {
+        $originalNbOfQuestionMarks = substr_count($utf8str, '?');
+        $finalNbOfQuestionMarks = substr_count($gsm_03_38, '?');
+
+        if($originalNbOfQuestionMarks !== $finalNbOfQuestionMarks) {
             return false;
         }
         return $gsm_03_38;
