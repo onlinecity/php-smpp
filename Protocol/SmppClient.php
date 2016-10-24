@@ -1,6 +1,7 @@
 <?php
 namespace Phpsmpp\Protocol;
 
+use Phpsmpp\Callback\SmsCallbackInterface;
 use Phpsmpp\Transport\TTransport;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
@@ -74,6 +75,11 @@ class SmppClient
 	
 	protected $sequence_number;
 	protected $sar_msg_ref_num;
+
+    /**
+     * @SmsCallbackInterface callback instance to catch sms events
+     */
+    protected $smsCallback = null;
 
 	/**
 	 * Construct the SMPP class
@@ -170,7 +176,7 @@ class SmppClient
 				array_splice($this->pdu_queue, $i, 1);
 
                 $sms = $this->parseSMS($pdu);
-                $this->logger->info("Received one sms from ".$sms->getSourceNumberPhone());
+
 				return $sms;
 			}
 		}
@@ -187,14 +193,19 @@ class SmppClient
                 }
             }
 		} while($pdu != null && $pdu->id!=$command_id);
-		
+
 		if($pdu) {
             $sms = $this->parseSMS($pdu);
-            $this->logger->info("Received one sms from ".$sms->getSourceNumberPhone());
             return $sms;
         }
 		return false;
 	}
+
+	private function sendSmsAck($pdu) {
+        // Send response of recieving sms
+        $response = new SmppPdu(SMPP::DELIVER_SM_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
+        $this->sendPDU($response);
+    }
 
 	public function sendSMS(SmppAddress $from, SmppAddress $to, $message) {
         $encoding_name = GsmEncoder::getMostFittingEncoding($message);
@@ -503,10 +514,29 @@ class SmppClient
 		}
 
         $this->logger->debug("Parsed sms:".$sms->toString());
-		
-		// Send response of recieving sms
-		$response = new SmppPdu(SMPP::DELIVER_SM_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
-		$this->sendPDU($response);
+
+        $this->logger->info("Received one sms from ".$sms->getSourceNumberPhone());
+
+        if($this->smsCallback !== null) {
+            switch(get_class($sms)) {
+                case SmppSms::class:
+                    if ($this->smsCallback->onSmsReceived($sms)) {
+                        $this->sendSmsAck($pdu);
+                    }
+                    break;
+                case SmppDeliveryReceipt::class:
+                    if ($this->smsCallback->onSmsDeliveryReceipt($sms)) {
+                        $this->sendSmsAck($pdu);
+                    }
+                    break;
+                default:
+                    $this->sendSmsAck($pdu);
+            }
+        }
+        else {
+            $this->sendSmsAck($pdu);
+        }
+
 		return $sms;
 	}
 	
@@ -774,5 +804,20 @@ class SmppClient
 
 		return $tag;
 	}
-	
+
+    /**
+     * @return SmsCallbackInterface
+     */
+    public function getSmsCallback()
+    {
+        return $this->smsCallback;
+    }
+
+    /**
+     * @param SmsCallbackInterface $smsCallback
+     */
+    public function setSmsCallback(SmsCallbackInterface $smsCallback)
+    {
+        $this->smsCallback = $smsCallback;
+    }
 }
