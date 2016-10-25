@@ -87,10 +87,16 @@ class SmppClient
 	 * @param TTransport $transport
 	 * @param string $debugHandler
 	 */
-	public function __construct(TTransport $transport, LoggerInterface $logger=null)
+	public function __construct(TTransport $transport, LoggerInterface $logger=null, $sequence_number=null)
 	{
 		// Internal parameters
-		$this->sequence_number=1;
+        if($sequence_number == null) {
+            $this->sequence_number=time();
+        }
+        else {
+            $this->sequence_number=1;
+        }
+
 		$this->debug=false;
 		$this->pdu_queue=array();
 		
@@ -483,9 +489,10 @@ class SmppClient
         if (($esmClass & SMPP::ESM_UHDI) != 0) {
             //we are receiving a multi-part SMS
             $udh_length = next($ar); //UDH lenght
-            next($ar);//unknown
-            next($ar);//unknown
-            $message_identifier = next($ar);//message identifier
+            $IE_id = next($ar);//not used
+            $IE_length = next($ar);//should be $udh_length - 4
+            $message_identifier_length = $IE_length - 2;
+            $message_identifier = $this->getInt($ar, $message_identifier_length);//message identifier
             $message_parts = next($ar);//number of parts in this multi-part SMS
             $message_part_number = next($ar);//current SMS part number
 
@@ -739,6 +746,18 @@ class SmppClient
 		} while($i<$maxlen && $c !=0);
 		return $s;
 	}
+
+    protected function getInt(&$ar, $maxlen=255, $firstRead=false)
+    {
+        $res=0;
+        $i=0;
+        do{
+            $c = ($firstRead && $i==0) ? current($ar) : next($ar);
+            if ($c != 0) $res += $c;
+            $i++;
+        } while($i<$maxlen && $c !=0);
+        return $res;
+    }
 
 	protected function getMessage(&$ar, $maxlen=255, $encoding_id, $firstRead=false) {
         $encodingName = SMPP::getEncodingName($encoding_id);
