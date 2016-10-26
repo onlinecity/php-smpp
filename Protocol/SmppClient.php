@@ -213,6 +213,12 @@ class SmppClient
         $this->sendPDU($response);
     }
 
+    /**
+     * @param SmppAddress $from
+     * @param SmppAddress $to
+     * @param $message
+     * @return SmppPduSubmitSmResp
+     */
 	public function sendSMS(SmppAddress $from, SmppAddress $to, $message) {
         $encoding_name = GsmEncoder::getMostFittingEncoding($message);
 
@@ -295,8 +301,9 @@ class SmppClient
 				return $res;
 			}
 		}
-		
-		return $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
+
+		$pdu = $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
+		return $this->parsePduSubmitSmResp($pdu);
 	}
 	
 	/**
@@ -312,7 +319,7 @@ class SmppClient
 	 * @param integer $priority
 	 * @param string $scheduleDeliveryTime
 	 * @param string $validityPeriod
-	 * @return string message id
+	 * @return SmppPduSubmitSmResp
 	 */
 	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
@@ -345,9 +352,7 @@ class SmppClient
 			}
 		}
 		
-		$response=$this->sendCommand(SMPP::SUBMIT_SM,$pdu);
-		$body = unpack("a*msgid",$response->body);
-		return $body['msgid'];
+		return $this->sendCommand(SMPP::SUBMIT_SM,$pdu);
 	}
 	
 	/**
@@ -546,6 +551,13 @@ class SmppClient
 
 		return $sms;
 	}
+
+    protected function parsePduSubmitSmResp(SmppPdu $pdu) {
+        $ar=unpack("C*",$pdu->body);
+        $smscMsgId = $this->getString($ar);
+
+        return new SmppPduSubmitSmResp($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $pdu->tcpMessage, $smscMsgId);
+    }
 	
 	/**
 	 * Send the enquire link command.
