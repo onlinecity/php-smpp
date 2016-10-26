@@ -9,6 +9,7 @@
 namespace Phpsmpp\Callback;
 
 
+use Phpsmpp\Protocol\SmppDeliveryReceipt;
 use Phpsmpp\Protocol\SmppSms;
 
 interface SmsCallbackInterface
