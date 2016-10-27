@@ -114,36 +114,39 @@ class GsmEncoder
         $encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
         $i = 0;
 
-        $sevenBitsInt = hexdec("7F"); //UTF-8 hexa.
-        $heightBitsInt = hexdec("C3BF"); //UTF-8 hexa. Corresponds to "FF"
         $length = mb_strlen($utf8str, SMPP::ENCODING_UTF8_NAME);
 
         while($encoding_name != SMPP::ENCODING_UCS2_NAME && $i < $length) {
             $char = mb_substr($utf8str, $i, 1, SMPP::ENCODING_UTF8_NAME);
 
             if($encoding_name == SMPP::ENCODING_GSM_03_38_NAME) {
-                if(self::utf8_to_gsm_03_38($char)) {
-                    $i++;
-                    continue;
+                if(!self::utf8_to_gsm_03_38($char)) {
+                    $encoding_name = SMPP::ENCODING_UCS2_NAME;
                 }
             }
 
+            $i++;
+
+            //The following code is kept commented, in case we have to work again on it later.
+            /*
+            $sevenBitsInt = hexdec("7F"); //UTF-8 hexa.
+            $heightBitsInt = hexdec("C3BF"); //UTF-8 hexa. Corresponds to "FF"
             $charHex = unpack('H*', $char);
             $charInt = hexdec($charHex[1]);
 
-            /*if($charInt > $heightBitsInt) {
+            if($charInt > $heightBitsInt) {
                 $encoding_name = SMPP::ENCODING_UCS2_NAME;
             }
             else if($charInt > $sevenBitsInt) {
                 $encoding_name = SMPP::ENCODING_ISO8859_1_NAME;
-            }*/
+            }
 
             //issues with ISO8859_1 --> if the character needs more than 7 bits --> UCS2
             if($charInt > $sevenBitsInt) {
                 $encoding_name = SMPP::ENCODING_UCS2_NAME;
             }
 
-            $i++;
+            $i++;*/
         }
 
         return $encoding_name;
