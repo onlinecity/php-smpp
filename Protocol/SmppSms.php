@@ -6,6 +6,7 @@ namespace Phpsmpp\Protocol;
  * Date: 14/10/2016
  * Time: 09:51
  */
+use Phpsmpp\Protocol\Tags\SmppTag;
 
 /**
  * Primitive type to represent SMSes
@@ -22,6 +23,9 @@ class SmppSms extends SmppPdu
     public $registeredDelivery;
     public $dataCoding;
     public $message;
+    /**
+     * @var SmppTag[]
+     */
     public $tags;
 
     //Used for multi-part SMS
@@ -87,10 +91,21 @@ class SmppSms extends SmppPdu
     }
 
     private function getTagsToString() {
+        $tagsStr = "";
+        $cnt = 0;
+
         if($this->tags !== null) {
-            return implode(";", $this->tags);
+            foreach($this->tags as $tag) {
+                if ($cnt > 0) {
+                    $tagsStr .= ";";
+                }
+                $tagsStr .= $tag->toString();
+                $cnt++;
+            }
+
+            return $tagsStr;
         }
-        else return "";
+        else return $tagsStr;
     }
 
     public function getSourceNumberPhone() {

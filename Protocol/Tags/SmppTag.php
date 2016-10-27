@@ -1,5 +1,5 @@
 <?php
-namespace Phpsmpp\Protocol;
+namespace Phpsmpp\Protocol\Tags;
 /**
  * Created by PhpStorm.
  * User: nfargere
@@ -87,5 +87,9 @@ class SmppTag
     public function getBinary()
     {
         return pack('nn'.$this->type, $this->id, ($this->length ? $this->length : strlen($this->value)), $this->value);
+    }
+
+    public function toString() {
+        return "id=[0x". dechex($this->id) ."], value=[". chunk_split(bin2hex($this->value ),2," ")."], length=[". $this->length ."], type=[". $this->type ."]";
     }
 }

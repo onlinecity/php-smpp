@@ -2,6 +2,7 @@
 namespace Phpsmpp\Protocol;
 
 use Phpsmpp\Callback\SmsCallbackInterface;
+use Phpsmpp\Protocol\Tags\SmppTag;
 use Phpsmpp\Transport\TTransport;
 use Monolog\Logger;
 use Monolog\Handler\StreamHandler;
@@ -217,7 +218,7 @@ class SmppClient
      * @param SmppAddress $from
      * @param SmppAddress $to
      * @param $message
-     * @return SmppPduSubmitSmResp
+     * @return SmppPduSubmitSmResp[]
      */
 	public function sendSMS(SmppAddress $from, SmppAddress $to, $message) {
         $encoding_name = GsmEncoder::getMostFittingEncoding($message);
@@ -249,62 +250,68 @@ class SmppClient
 	 * @param integer $priority (optional)
 	 * @param string $scheduleDeliveryTime (optional)
 	 * @param string $validityPeriod (optional)
-	 * @return string message id
+	 * @return SmppPduSubmitSmResp[]
 	 */
-	public function sendSMSFullParam(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
-	{
-		$msg_length = strlen($message);
-		
-		if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) return false;
-		
-		switch ($dataCoding) {
-			case SMPP::DATA_CODING_UCS2:
-				$singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
-				$csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
-				break;
-            case SMPP::DATA_CODING_DEFAULT:
-				$singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
-				$csmsSplit = 152; // send 152 chars in each SMS since, we will use 16-bit CSMS ids (SMSC will format data)
-				break;
-			default:
-				$singleSmsOctetLimit = 254; // From SMPP standard
-				break;
-		}
-		
-		// Figure out if we need to do CSMS, since it will affect our PDU
-		if ($msg_length > $singleSmsOctetLimit) {
-			$doCsms = true;
-			if (!$this->sms_use_msg_payload_for_csms) {
-				$parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
-				$short_message = reset($parts);
-				$csmsReference = $this->getCsmsReference();
-			}
-		} else {
-			$short_message = $message;
-			$doCsms = false;
-		}
-		
-		// Deal with CSMS
-		if ($doCsms) {
-			if ($this->sms_use_msg_payload_for_csms) {
-				$payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
-				return $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
-			} else {
-				$sar_msg_ref_num = new SmppTag(SmppTag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
-				$sar_total_segments = new SmppTag(SmppTag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
-				$seqnum = 1;
-				foreach ($parts as $part) {
-					$sartags = array($sar_msg_ref_num, $sar_total_segments, new SmppTag(SmppTag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
-					$res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
-					$seqnum++;
-				}
-				return $res;
-			}
-		}
+    public function sendSMSFullParam(SmppAddress $from, SmppAddress $to, $message, $tags=null, $dataCoding, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
+    {
+        $msg_length = strlen($message);
 
-		$pdu = $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
-		return $this->parsePduSubmitSmResp($pdu);
-	}
+        if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) return false;
+
+        switch ($dataCoding) {
+            case SMPP::DATA_CODING_UCS2:
+                $singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
+                $csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
+                break;
+            case SMPP::DATA_CODING_DEFAULT:
+                $singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
+                $csmsSplit = 152; // send 152 chars in each SMS since, we will use 16-bit CSMS ids (SMSC will format data)
+                break;
+            default:
+                $singleSmsOctetLimit = 254; // From SMPP standard
+                break;
+        }
+
+        // Figure out if we need to do CSMS, since it will affect our PDU
+        if ($msg_length > $singleSmsOctetLimit) {
+            $doCsms = true;
+            if (!$this->sms_use_msg_payload_for_csms) {
+                $parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
+                $short_message = reset($parts);
+                $csmsReference = $this->getCsmsReference();
+            }
+        } else {
+            $short_message = $message;
+            $doCsms = false;
+        }
+
+        $submitSmResp = array();
+
+        // Deal with CSMS
+        if ($doCsms) {
+            if ($this->sms_use_msg_payload_for_csms) {
+                $payload = new SmppTag(SmppTag::MESSAGE_PAYLOAD, $message, $msg_length);
+                $res = $this->submit_sm($from, $to, null, (empty($tags) ? array($payload) : array_merge($tags,$payload)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+                $submitSmResp[] = $this->parsePduSubmitSmResp($res);
+                return $submitSmResp;
+            } else {
+                $sar_msg_ref_num = new SmppTag(SmppTag::SAR_MSG_REF_NUM, $csmsReference, 2, 'n');
+                $sar_total_segments = new SmppTag(SmppTag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
+                $seqnum = 1;
+                foreach ($parts as $part) {
+                    $sartags = array($sar_msg_ref_num, $sar_total_segments, new SmppTag(SmppTag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
+                    $res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
+                    $submitSmResp[] = $this->parsePduSubmitSmResp($res);
+                    $seqnum++;
+                }
+                return $submitSmResp;
+            }
+        }
+
+        $pdu = $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
+        $submitSmResp[] = $this->parsePduSubmitSmResp($pdu);
+        return $submitSmResp;
+    }
 	
 	/**
 	 * Perform the actual submit_sm call to send SMS.
@@ -542,19 +549,25 @@ class SmppClient
                     }
                     break;
                 default:
+                    $this->logger->debug("No SmsCallbackInterface method defined for this case.");
                     $this->sendSmsAck($pdu);
             }
         }
         else {
+            $this->logger->debug("No SmsCallbackInterface instance given.");
             $this->sendSmsAck($pdu);
         }
 
 		return $sms;
 	}
 
+    /**
+     * @param SmppPdu $pdu
+     * @return SmppPduSubmitSmResp
+     */
     protected function parsePduSubmitSmResp(SmppPdu $pdu) {
         $ar=unpack("C*",$pdu->body);
-        $smscMsgId = $this->getString($ar);
+        $smscMsgId = $this->getString($ar, 255, true);
 
         return new SmppPduSubmitSmResp($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $pdu->tcpMessage, $smscMsgId);
     }
@@ -828,10 +841,10 @@ class SmppClient
 		$value = $this->getOctets($ar,$length);
 		$tag = new SmppTag($id, $value, $length);
 
-        $this->logger->debug("Parsed tag:");
+        /*$this->logger->debug("Parsed tag:");
         $this->logger->debug(" id     :0x".dechex($tag->id));
         $this->logger->debug(" length :".$tag->length);
-        $this->logger->debug(" value  :".chunk_split(bin2hex($tag->value),2," "));
+        $this->logger->debug(" value  :".chunk_split(bin2hex($tag->value),2," "));*/
 
 		return $tag;
 	}
