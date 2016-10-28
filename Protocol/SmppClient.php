@@ -36,7 +36,9 @@ class SmppClient
 	public $system_type=null;
 	public $interface_version=0x34;
 	public $addr_ton=0x1;
+    public $default_unknown_addr_ton=0x1;
 	public $addr_npi=0x1;
+    public $default_unknown_addr_npi=0x1;
 	public $address_range="";
 	
 	// ESME transmitter parameters
@@ -63,6 +65,11 @@ class SmppClient
 	 * @var boolean
 	 */
 	public $sms_use_msg_payload_for_csms=false;
+
+    /** For example, switzerland: 41, Nigeria: 234
+     * @var integer
+     */
+    public $gatewayCountryCodeNumber;
 
 	protected $pdu_queue;
 	
@@ -310,6 +317,7 @@ class SmppClient
 
         $pdu = $this->submit_sm($from, $to, $short_message, $tags, $dataCoding);
         $submitSmResp[] = $this->parsePduSubmitSmResp($pdu);
+        $this->logger->info("Sent message from [". $from->toString() ."] to [". $to->toString() ."]");
         return $submitSmResp;
     }
 	
@@ -331,14 +339,14 @@ class SmppClient
 	protected function submit_sm(SmppAddress $source, SmppAddress $destination, $short_message=null, $tags=null, $dataCoding=SMPP::DATA_CODING_DEFAULT, $priority=0x00, $scheduleDeliveryTime=null, $validityPeriod=null)
 	{
 		// Construct PDU with mandatory fields
-		$pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+($this->sms_null_terminate_octetstrings ? 1 : 0)),
+		$pdu = pack('a1cca'.(strlen($source->inboundInternationalPhoneNumber)+1).'cca'.(strlen($destination->outboundInternationalPhoneNumber)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+($this->sms_null_terminate_octetstrings ? 1 : 0)),
 			$this->sms_service_type,
 			$source->ton,
 			$source->npi,
-			$source->value,
+			$source->inboundInternationalPhoneNumber,
 			$destination->ton,
 			$destination->npi,
-			$destination->value,
+            $destination->outboundInternationalPhoneNumber,
 			$this->sms_esm_class,
 			$this->sms_protocol_id,
 			$priority,
@@ -358,7 +366,7 @@ class SmppClient
 				$pdu .= $tag->getBinary();
 			}
 		}
-		
+		$this->logger->debug("Sending message [". $short_message ."] from [". $source->toString() ."] to [". $destination->toString() ."]");
 		return $this->sendCommand(SMPP::SUBMIT_SM,$pdu);
 	}
 	
@@ -476,12 +484,14 @@ class SmppClient
 		$source_addr_ton = next($ar);
 		$source_addr_npi = next($ar);
 		$source_addr = $this->getString($ar,21);
-		$source = new SmppAddress($source_addr,$source_addr_ton,$source_addr_npi);
+        //$source = new SmppAddress($source_addr,$source_addr_ton,$source_addr_npi);
+        $source = new SmppAddress($source_addr, $source_addr_ton, $this->default_unknown_addr_ton, $source_addr_npi, $this->default_unknown_addr_npi, $this->gatewayCountryCodeNumber);//
 		
 		$dest_addr_ton = next($ar);
 		$dest_addr_npi = next($ar);
 		$destination_addr = $this->getString($ar,21);
-		$destination = new SmppAddress($destination_addr,$dest_addr_ton,$dest_addr_npi);
+		//$destination = new SmppAddress($destination_addr,$dest_addr_ton,$dest_addr_npi);
+        $destination = new SmppAddress($destination_addr, $dest_addr_ton, $this->default_unknown_addr_ton, $dest_addr_npi, $this->default_unknown_addr_npi, $this->gatewayCountryCodeNumber);//
 		
 		$esmClass = next($ar);
 		$protocolId = next($ar);
@@ -848,6 +858,14 @@ class SmppClient
 
 		return $tag;
 	}
+
+    /**
+     * @param $value
+     * @return SmppAddress
+     */
+	public function getNewAddress($value) {
+        return new SmppAddress($value, $this->addr_ton, $this->default_unknown_addr_ton, $this->addr_npi, $this->default_unknown_addr_npi, $this->gatewayCountryCodeNumber);
+    }
 
     /**
      * @return SmsCallbackInterface
