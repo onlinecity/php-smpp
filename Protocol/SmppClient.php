@@ -32,6 +32,8 @@ use Psr\Log\LoggerInterface;
  */
 class SmppClient
 {
+    public $phoneOperator;
+
 	// SMPP bind parameters
 	public $system_type=null;
 	public $interface_version=0x34;
