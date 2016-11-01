@@ -10,10 +10,14 @@ namespace Phpsmpp\Callback;
 
 
 use Phpsmpp\Protocol\SmppDeliveryReceipt;
+use Phpsmpp\Protocol\SmppPdu;
 use Phpsmpp\Protocol\SmppSms;
 
 interface SmsCallbackInterface
 {
+    function onBindReceiverSuccess();
+    function onBindTransmitterSuccess();
+    function onEnquireLinkReceived(SmppPdu $pdu);
     function onSmsReceived(SmppSms $sms);
     function onSmsDeliveryReceipt(SmppDeliveryReceipt $deliveryReceipt);
 }

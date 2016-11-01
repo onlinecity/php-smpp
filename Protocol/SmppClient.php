@@ -85,7 +85,8 @@ class SmppClient
 	protected $sar_msg_ref_num;
 
     /**
-     * @SmsCallbackInterface callback instance to catch sms events
+     * Callback instance to catch sms events
+     * @var SmsCallbackInterface
      */
     protected $smsCallback = null;
 
@@ -131,6 +132,10 @@ class SmppClient
         $this->logger->info('Binding receiver...');
 
 		$response = $this->_bind($login, $pass, SMPP::BIND_RECEIVER);
+
+        if($this->smsCallback !== null) {
+            $this->smsCallback->onBindReceiverSuccess();
+        }
 		
 		$this->logger->info("Binding status: ".$response->status." ".SMPP::getStatusMessage($response->status));
 		$this->mode = 'receiver';
@@ -150,6 +155,10 @@ class SmppClient
 		$this->logger->info('Binding transmitter...');
 		
 		$response = $this->_bind($login, $pass, SMPP::BIND_TRANSMITTER);
+
+        if($this->smsCallback !== null) {
+            $this->smsCallback->onBindTransmitterSuccess();
+        }
 
         $this->logger->info("Binding status  : ".$response->status);
 		$this->mode = 'transmitter';
@@ -201,6 +210,11 @@ class SmppClient
             if ($pdu != null && $pdu->isValid()) {
                 if ($pdu->id == SMPP::ENQUIRE_LINK) {
                     $response = new SmppPdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
+
+                    if($this->smsCallback !== null) {
+                        $this->smsCallback->onEnquireLinkReceived($pdu);
+                    }
+
                     $this->sendPDU($response);
                 } else if ($pdu->id != $command_id) { // if this is not the correct PDU add to queue
                     array_push($this->pdu_queue, $pdu);
