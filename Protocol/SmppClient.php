@@ -1,7 +1,7 @@
 <?php
 namespace Phpsmpp\Protocol;
 
-use Phpsmpp\Callback\SmsCallbackInterface;
+use Phpsmpp\Callback\SmsReceiveCallbackInterface;
 use Phpsmpp\Protocol\Tags\SmppTag;
 use Phpsmpp\Transport\TTransport;
 use Monolog\Logger;
@@ -88,7 +88,7 @@ class SmppClient
 
     /**
      * Callback instance to catch sms events
-     * @var SmsCallbackInterface
+     * @var SmsReceiveCallbackInterface
      */
     protected $smsCallback = null;
 
@@ -157,10 +157,6 @@ class SmppClient
 		$this->logger->info('Binding transmitter...');
 		
 		$response = $this->_bind($login, $pass, SMPP::BIND_TRANSMITTER);
-
-        if($this->smsCallback !== null) {
-            $this->smsCallback->onBindTransmitterSuccess();
-        }
 
         $this->logger->info("Binding status  : ".$response->status);
 		$this->mode = 'transmitter';
@@ -884,7 +880,7 @@ class SmppClient
     }
 
     /**
-     * @return SmsCallbackInterface
+     * @return SmsReceiveCallbackInterface
      */
     public function getSmsCallback()
     {
@@ -892,9 +888,9 @@ class SmppClient
     }
 
     /**
-     * @param SmsCallbackInterface $smsCallback
+     * @param SmsReceiveCallbackInterface $smsCallback
      */
-    public function setSmsCallback(SmsCallbackInterface $smsCallback)
+    public function setSmsCallback(SmsReceiveCallbackInterface $smsCallback)
     {
         $this->smsCallback = $smsCallback;
     }
