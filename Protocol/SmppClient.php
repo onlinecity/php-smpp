@@ -218,7 +218,8 @@ class SmppClient
                     array_push($this->pdu_queue, $pdu);
                 }
             }
-		} while($pdu != null && $pdu->id!=$command_id);
+            $keepReading = $this->keepReadingPDU();
+		} while($pdu != null && $pdu->id!=$command_id && $keepReading);
 
 		if($pdu) {
             $sms = $this->parseSMS($pdu);
@@ -485,7 +486,7 @@ class SmppClient
 	protected function parseSMS(SmppPdu $pdu)
 	{
 		// Check command id
-		if($pdu->id != SMPP::DELIVER_SM) throw new InvalidArgumentException('PDU is not an received SMS');
+		if(!$pdu->isAnSMS()) return false;
 
 		// Unpack PDU
 		$ar=unpack("C*",$pdu->body);
@@ -707,6 +708,14 @@ class SmppClient
 		} while($pdu != null);
 		return false;
 	}
+
+	protected function keepReadingPDU() {
+        if($this->smsCallback !== null) {
+            return $this->smsCallback->keepReadingIncomingSMS();
+        }
+
+        return true;
+    }
 	
 	/**
 	 * Reads incoming PDU from SMSC.
@@ -852,7 +861,7 @@ class SmppClient
         $id = null;
 
 		$unpackedData = unpack('nid/nlength',pack("C2C2",next($ar),next($ar),next($ar),next($ar)));
-		if (!$unpackedData) throw new InvalidArgumentException('Could not read tag data');
+		if (!$unpackedData) throw new \InvalidArgumentException('Could not read tag data');
 		extract($unpackedData);
 		
 		// Sometimes SMSC return an extra null byte at the end

@@ -19,4 +19,9 @@ interface SmsReceiveCallbackInterface
     function onEnquireLinkReceived(SmppPdu $pdu);
     function onSmsReceived(SmppSms $sms);
     function onSmsDeliveryReceipt(SmppDeliveryReceipt $deliveryReceipt);
+
+    /**
+     * @return bool
+     */
+    function keepReadingIncomingSMS();
 }

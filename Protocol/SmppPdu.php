@@ -41,6 +41,10 @@ class SmppPdu
         return SMPP::command_id_valid($this->id) && SMPP::status_code_valid($this->status) && isset($this->sequence);
     }
 
+    public function isAnSMS() {
+        return $this->isValid() && $this->id == SMPP::DELIVER_SM;
+    }
+
     public function toString() {
         return "Length: [". $this->getLength() ."], command_id: [". dechex($this->id) ."] (". SMPP::getCommandText($this->id) ."), status: [". dechex($this->status) ."]  (". SMPP::getStatusMessage($this->status) ."), sequence: [". $this->sequence ."], body: [". bin2hex($this->body)."] (". $this->body  ."), tcpMessage: [". bin2hex($this->tcpMessage) ."] (". $this->tcpMessage ."), isValid: [". $this->isValid() ."]";
     }
