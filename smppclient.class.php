@@ -706,15 +706,15 @@ class SmppClient
 		extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
 		
 		// Read PDU body
-		if($length-16>0){
-			$body=$this->transport->readAll($length-16);
+		if($bufLength-16>0){
+			$body=$this->transport->readAll($bufLength-16);
 			if(!$body) throw new RuntimeException('Could not read PDU body');
 		} else {
 			$body=null;
 		}
 		
 		if($this->debug) {
-			call_user_func($this->debugHandler, "Read PDU         : $length bytes");
+			call_user_func($this->debugHandler, "Read PDU         : $bufLength bytes");
 			call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($bufLength.$bufHeaders.$body),2," "));
 			call_user_func($this->debugHandler, " command id      : 0x".dechex($command_id));
 			call_user_func($this->debugHandler, " command status  : 0x".dechex($command_status)." ".SMPP::getStatusMessage($command_status));
