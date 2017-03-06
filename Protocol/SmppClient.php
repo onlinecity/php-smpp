@@ -52,6 +52,8 @@ class SmppClient
 	public $sms_replace_if_present_flag=0x00;
 	public $sms_sm_default_msg_id=0x00;
 
+	public $send_enquire_links = false;
+
     //Default encoding name when we receive/send SMS with the SMPP encoding 0x0 (Default)
     public $default_encoding_name = SMPP::ENCODING_GSM_03_38_NAME;
 	
@@ -734,7 +736,7 @@ class SmppClient
         $this->logger->debug("Waiting for incoming PDU...");
 
         // Read PDU length
-        $bufLength = $this->transport->read(4);
+        $bufLength = $this->readData(4);
         //$this->logger->debug('bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
 
         $bufLengthDecimal = hexdec(bin2hex($bufLength));
@@ -742,7 +744,7 @@ class SmppClient
             extract(unpack("Nlength", $bufLength));
 
             // Read PDU headers
-            $bufHeaders = $this->transport->read(12);
+            $bufHeaders = $this->readData(12);
             //$this->logger->debug('$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
 
             extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
@@ -781,6 +783,26 @@ class SmppClient
 
 		return $smppPdu;
 	}
+
+	private function readData($len) {
+	    $keepReading = true;
+	    $data = null;
+
+	    while($keepReading) {
+            $data = $this->transport->read($len);
+
+            if($data === null) {
+                if($this->send_enquire_links) {
+                    $this->enquireLink();
+                }
+            }
+            else {
+                $keepReading = false;
+            }
+        }
+
+        return $data;
+    }
 	
 	/**
 	 * Reads C style null padded string from the char array.
