@@ -245,7 +245,11 @@ class SmppClient
 	public function sendSMS(SmppAddress $from, SmppAddress $to, $message) {
         $encoding_name = GsmEncoder::getMostFittingEncoding($message);
 
-        if($encoding_name == SMPP::ENCODING_GSM_03_38_NAME && $this->default_encoding_name != SMPP::ENCODING_GSM_03_38_NAME) {
+        if(strlen($message) > 160) {
+            $encoding_name = SMPP::ENCODING_UCS2_NAME;
+        }
+
+        else if($encoding_name == SMPP::ENCODING_GSM_03_38_NAME && $this->default_encoding_name != SMPP::ENCODING_GSM_03_38_NAME) {
             $encoding_name = SMPP::ENCODING_ISO8859_1_NAME;
         }
         $encodedMessage = GsmEncoder::utf8_to_other($encoding_name, $message);
