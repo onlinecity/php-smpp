@@ -527,29 +527,42 @@ class SmppClient
         $message_parts = null;
         $message_part_number = null;
 
-        if (($esmClass & SMPP::ESM_UHDI) != 0) {
-            //we are receiving a multi-part SMS
-            $udh_length = next($ar); //UDH lenght
-            $IE_id = next($ar);//not used
-            $IE_length = next($ar);//should be $udh_length - 4
-            $message_identifier_length = $IE_length - 2;
-            $message_identifier = $this->getInt($ar, $message_identifier_length);//message identifier
-            $message_parts = next($ar);//number of parts in this multi-part SMS
-            $message_part_number = next($ar);//current SMS part number
+        $message = null;
 
-            $message = $this->getMessage($ar,$sm_length-$udh_length, $dataCoding);
-        }
-        else {
-            $message = $this->getMessage($ar, $sm_length, $dataCoding);
+        if($sm_length > 0) {
+            if (($esmClass & SMPP::ESM_UHDI) != 0) {
+                //we are receiving a multi-part SMS
+                $udh_length = next($ar); //UDH lenght
+                $IE_id = next($ar);//not used
+                $IE_length = next($ar);//should be $udh_length - 4
+                $message_identifier_length = $IE_length - 2;
+                $message_identifier = $this->getInt($ar, $message_identifier_length);//message identifier
+                $message_parts = next($ar);//number of parts in this multi-part SMS
+                $message_part_number = next($ar);//current SMS part number
+
+                $message = $this->getMessage($ar, $sm_length - $udh_length, $dataCoding);
+            } else {
+                $message = $this->getMessage($ar, $sm_length, $dataCoding);
+            }
         }
 		
 		// Check for optional params, and parse them
 		if (current($ar) !== false) {
 			$tags = array();
 			do {
-				$tag = $this->parseTag($ar);
-				if ($tag !== false) $tags[] = $tag;
-			} while (current($ar) !== false);
+				$tag = $this->parseTag($ar, $dataCoding);
+				if ($tag !== false) {
+                    $tags[] = $tag;
+
+                    //See section 5.3.2.32 page 153 ("message_payload")
+                    if (($tag->id & SMPP::TAG_MESSAGE_PAYLOAD) != 0) {
+                        //the sms content must be present in the body OR in this tag. Not both.
+                        //If the content is in the tag, $sm_length must be 0
+                        $message .= $tag->value;
+                    }
+                }
+			}
+			while (current($ar) !== false);
 		} else {
 			$tags = null;
 		}
@@ -744,7 +757,7 @@ class SmppClient
         //$this->logger->debug('bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
 
         $bufLengthDecimal = hexdec(bin2hex($bufLength));
-        if($bufLengthDecimal > 0 && $bufLengthDecimal <= 254) {
+        if($bufLengthDecimal > 0) {
             extract(unpack("Nlength", $bufLength));
 
             // Read PDU headers
@@ -881,7 +894,7 @@ class SmppClient
 		return $s;
 	}
 	
-	protected function parseTag(&$ar)
+	protected function parseTag(&$ar, $dataCoding)
 	{
 	    $length = null;
         $id = null;
@@ -894,8 +907,14 @@ class SmppClient
 		if ($length==0 && $id == 0) {
 			return false;	
 		}
-		
-		$value = $this->getOctets($ar,$length);
+
+        if (($id & SMPP::TAG_MESSAGE_PAYLOAD) != 0) {
+            $value = $this->getMessage($ar, $length, $dataCoding);
+        }
+        else {
+            $value = $this->getOctets($ar,$length);
+        }
+
 		$tag = new SmppTag($id, $value, $length);
 
         /*$this->logger->debug("Parsed tag:");
