@@ -621,6 +621,11 @@ class SmppClient
 	public function enquireLink()
 	{
 		$response = $this->sendCommand(SMPP::ENQUIRE_LINK, null);
+
+        if($this->smsCallback !== null) {
+            $this->smsCallback->onEnquireLinkSent();
+        }
+
 		return $response;
 	}
 	
