@@ -34,10 +34,27 @@ class TSocket extends TTransport {
 	 */
 	protected $port_ = '9090';
 
+    /**
+     * Connection timeout. Combined with connectionTimeoutUSec_.
+     * To be distinguished from $sendTimeoutSec_ and $recvTimeoutSec_.
+     * When $connectionTimeoutSec_ is reached, the TCP connection is closed.
+     *
+     * @var int
+     */
+	private $connectionTimeoutSec_ = 0;
+
+    /**
+     * Connection timeout.
+     * @var int
+     */
+    private $connectionTimeoutUsec_ = 300000;
+
 	/**
 	 * Send timeout in seconds.
 	 *
 	 * Combined with sendTimeoutUsec this is used for send timeouts.
+     * When reached, the TCP connection is not closed, and no exception is thrown.
+     * This gives the chance to send enquire_link messages to preserve the connection before $connectionTimeoutSec_ is reached.
 	 *
 	 * @var int
 	 */
@@ -65,6 +82,8 @@ class TSocket extends TTransport {
 	 * Recv timeout in microseconds
 	 *
 	 * Combined with recvTimeoutSec this is used for recv timeouts.
+     * When reached, the TCP connection is not closed, and no exception is thrown.
+     * This gives the chance to send enquire_link messages to preserve the connection before $connectionTimeoutSec_ is reached.
 	 *
 	 * @var int
 	 */
@@ -106,6 +125,14 @@ class TSocket extends TTransport {
 	public function setHandle($handle) {
 		$this->handle_ = $handle;
 	}
+
+    /**
+     * @param $timeout int Timeout in milliseconds
+     */
+	public function setConnectionTimeout($timeout) {
+        $this->connectionTimeoutSec_ = floor($timeout / 1000);
+        $this->connectionTimeoutUsec_ = ($timeout - ($this->connectionTimeoutSec_ * 1000)) * 1000;
+    }
 
 	/**
 	 * Sets the send timeout.
@@ -175,13 +202,13 @@ class TSocket extends TTransport {
 			$this->port_,
 			$errno,
 			$errstr,
-			$this->sendTimeoutSec_ + ($this->sendTimeoutUsec_ / 1000000));
+			$this->connectionTimeoutSec_ + ($this->connectionTimeoutUsec_ / 1000000));
 		} else {
 			$this->handle_ = @fsockopen($this->host_,
 			$this->port_,
 			$errno,
 			$errstr,
-			$this->sendTimeoutSec_ + ($this->sendTimeoutUsec_ / 1000000));
+			$this->connectionTimeoutSec_ + ($this->connectionTimeoutUsec_ / 1000000));
 		}
 
 		// Connect failed?
@@ -228,8 +255,8 @@ class TSocket extends TTransport {
 
 			return $data;
 		} else if ($readable === 0) {
-			throw new TTransportException('TSocket: timed out reading '.$len.' bytes from '.
-			$this->host_.':'.$this->port_);
+		    return null;
+			//throw new TTransportException('TSocket: timed out reading '.$len.' bytes from '. $this->host_.':'.$this->port_);
 		} else {
 			throw new TTransportException('TSocket: Could not read '.$len.' bytes from '.
 			$this->host_.':'.$this->port_);

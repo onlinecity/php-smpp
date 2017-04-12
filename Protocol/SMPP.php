@@ -186,6 +186,52 @@ class SMPP
     const SMS_PRIORITY_URGENT = 0x02;
     const SMS_PRIORITY_EMERGENCY = 0x03;
 
+    //Optional Parameter Tag Definition - 5.3.2 page 132
+    const TAG_DEST_ADDR_SUBUNIT = 0x0005;
+    const TAG_DEST_NETWORK_TYPE = 0x0006;
+    const TAG_DEST_BEARER_TYPE = 0x0007;
+    const TAG_DEST_TELEMATICS_ID = 0x0008;
+    const TAG_SOURCE_ADDR_SUBUNIT = 0x000D;
+    const TAG_SOURCE_NETWORK_TYPE = 0x000E;
+    const TAG_SOURCE_BEARER_TYPE = 0x000F;
+    const TAG_SOURCE_TELEMATICS_ID = 0x0010;
+    const TAG_QOS_TIME_TO_LIVE = 0x0017;
+    const TAG_PAYLOAD_TYPE = 0x0019;
+    const TAG_ADDITIONAL_STATUS_INFO_TEXT = 0x001D;
+    const TAG_RECEIPTED_MESSAGE_ID = 0x001E;
+    const TAG_MS_MSG_WAIT_FACILITIES = 0x0030;
+    const TAG_PRIVACY_INDICATOR = 0x0201;
+    const TAG_SOURCE_SUBADDRESS = 0x0202;
+    const TAG_DEST_SUBADDRESS = 0x0203;
+    const TAG_USER_MESSAGE_REFERENCE = 0x0204;
+    const TAG_USER_RESPONSE_CODE = 0x0205;
+    const TAG_SOURCE_PORT = 0x020A;
+    const TAG_DESTINATION_PORT = 0x020B;
+    const TAG_SAR_MSG_REF_NUM = 0x020C;
+    const TAG_LANGUAGE_INDICATOR = 0x020D;
+    const TAG_SAR_TOTAL_SEGMENTS = 0x020E;
+    const TAG_SAR_SEGMENT_SEQNUM = 0x020F;
+    const TAG_SC_INTERFACE_VERSION = 0x0210;
+    const TAG_CALLBACK_NUM_PRES_IND = 0x0302;
+    const TAG_CALLBACK_NUM_ATAG = 0x0303;
+    const TAG_NUMBER_OF_MESSAGES = 0x0304;
+    const TAG_CALLBACK_NUM = 0x0381;
+    const TAG_DPF_RESULT = 0x0420;
+    const TAG_SET_DPF = 0x0421;
+    const TAG_MS_AVAILABILITY_STATUS = 0x0422;
+    const TAG_NETWORK_ERROR_CODE = 0x0423;
+    const TAG_MESSAGE_PAYLOAD = 0x0424;
+    const TAG_DELIVERY_FAILURE_REASON = 0x0425;
+    const TAG_MORE_MESSAGES_TO_SEND = 0x0426;
+    const TAG_MESSAGE_STATE = 0x0427;
+    const TAG_USSD_SERVICE_OP = 0x0501;
+    const TAG_DISPLAY_TIME = 0x1201;
+    const TAG_SMS_SIGNAL = 0x1203;
+    const TAG_MS_VALIDITY = 0x1204;
+    const TAG_ALERT_ON_MESSAGE_DELIVERY = 0x130C;
+    const TAG_ITS_REPLY_TYPE = 0x1380;
+    const TAG_ITS_SESSION_INFO = 0x1383;
+
     public static function status_code_valid($statuscode) {
         return SMPP::getStatusMessage($statuscode) != null;
     }

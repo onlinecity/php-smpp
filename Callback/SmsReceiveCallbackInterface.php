@@ -17,6 +17,7 @@ interface SmsReceiveCallbackInterface
 {
     function onBindReceiverSuccess();
     function onEnquireLinkReceived(SmppPdu $pdu);
+    function onEnquireLinkSent();
     function onSmsReceived(SmppSms $sms);
     function onSmsDeliveryReceipt(SmppDeliveryReceipt $deliveryReceipt);
 
