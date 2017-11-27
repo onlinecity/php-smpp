@@ -754,6 +754,7 @@ class SmppClient
         $command_status = null;
         $sequence_number = null;
         $body = null;
+        $smppPdu = null;
 
         $this->logger->debug("Waiting for incoming PDU...");
 
@@ -761,49 +762,52 @@ class SmppClient
         $bufLength = $this->readData(4);
         //$this->logger->debug('bufLength= ' . chunk_split(bin2hex($bufLength), 2, " "));
 
-        $bufLengthDecimal = hexdec(bin2hex($bufLength));
-        if($bufLengthDecimal > 0) {
-            extract(unpack("Nlength", $bufLength));
+        if($bufLength !== null) {
+            $bufLengthDecimal = hexdec(bin2hex($bufLength));
 
-            // Read PDU headers
-            $bufHeaders = $this->readData(12);
-            //$this->logger->debug('$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
+            if ($bufLengthDecimal > 0) {
+                extract(unpack("Nlength", $bufLength));
 
-            extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
+                // Read PDU headers
+                $bufHeaders = $this->readData(12);
+                //$this->logger->debug('$bufHeaders= ' . chunk_split(bin2hex($bufHeaders), 2, " "));
 
-            // Read PDU body
-            if ($length - 16 > 0) {
-                $body = $this->transport->readAll($length - 16);
-                if (!$body) throw new RuntimeException('Could not read PDU body');
-            } else {
-                $body = null;
+                extract(unpack("Ncommand_id/Ncommand_status/Nsequence_number", $bufHeaders));
+
+                // Read PDU body
+                if ($length - 16 > 0) {
+                    $body = $this->transport->readAll($length - 16);
+                    if (!$body) throw new RuntimeException('Could not read PDU body');
+                } else {
+                    $body = null;
+                }
+
+                $this->logger->debug("Read PDU         : $length bytes");
+                /*$this->logger->debug(' ' . chunk_split(bin2hex($bufLength . $bufHeaders . $body), 2, " "));
+                $this->logger->debug(" command id      :" . dechex($command_id) . " " . SMPP::getCommandText($command_id));
+                $this->logger->debug(" command status  : 0x" . dechex($command_status) . " " . SMPP::getStatusMessage($command_status));
+                $this->logger->debug(' sequence number : ' . $sequence_number);*/
+            }
+            else {
+                $this->logger->warn("Received an invalid SMPP PDU");
             }
 
-            $this->logger->debug("Read PDU         : $length bytes");
-            /*$this->logger->debug(' ' . chunk_split(bin2hex($bufLength . $bufHeaders . $body), 2, " "));
-            $this->logger->debug(" command id      :" . dechex($command_id) . " " . SMPP::getCommandText($command_id));
-            $this->logger->debug(" command status  : 0x" . dechex($command_status) . " " . SMPP::getStatusMessage($command_status));
-            $this->logger->debug(' sequence number : ' . $sequence_number);*/
-        }
-        else {
-            $this->logger->warn("Received an invalid SMPP PDU");
+            $tcpMessage = "";
+            if ($bufLength != null) {
+                $tcpMessage .= $bufLength;
+            }
+            if ($bufHeaders != null) {
+                $tcpMessage .= $bufHeaders;
+            }
+            if ($body != null) {
+                $tcpMessage .= $body;
+            }
+
+            $smppPdu = new SmppPdu($command_id, $command_status, $sequence_number, $body, $tcpMessage);
+            $this->logger->debug("Received PDU: " . $smppPdu->toString());
         }
 
-        $tcpMessage = "";
-        if($bufLength != null) {
-            $tcpMessage .= $bufLength;
-        }
-        if($bufHeaders != null) {
-            $tcpMessage .= $bufHeaders;
-        }
-        if($body != null) {
-            $tcpMessage .= $body;
-        }
-
-        $smppPdu = new SmppPdu($command_id, $command_status, $sequence_number, $body, $tcpMessage);
-        $this->logger->debug("Received PDU: ".$smppPdu->toString());
-
-		return $smppPdu;
+        return $smppPdu;
 	}
 
 	private function readData($len) {
@@ -814,7 +818,7 @@ class SmppClient
             $data = $this->transport->read($len);
 
             if($data === null) {
-                if($this->send_enquire_links) {
+                if($this->send_enquire_links && $this->keepReadingPDU()) {
                     $this->enquireLink();
                 }
             }
