@@ -1,11 +1,15 @@
 <?php
-require_once $GLOBALS['SMPP_ROOT'].'/transport/ttransport.class.php';
-require_once $GLOBALS['SMPP_ROOT'].'/transport/texception.class.php';
+namespace Phpsmpp\Transport;
+//require_once $GLOBALS['SMPP_ROOT'].'/Transport/ttransport.class.php';
+//require_once $GLOBALS['SMPP_ROOT'].'/Transport/texception.class.php';
+use Monolog\Handler\StreamHandler;
+use Monolog\Logger;
+use Psr\Log\LoggerInterface;
 
 /**
  * Sockets implementation of the TTransport interface.
  *
- * @package thrift.transport
+ * @package thrift.Transport
  */
 class TSocket extends TTransport {
 
@@ -30,10 +34,27 @@ class TSocket extends TTransport {
 	 */
 	protected $port_ = '9090';
 
+    /**
+     * Connection timeout. Combined with connectionTimeoutUSec_.
+     * To be distinguished from $sendTimeoutSec_ and $recvTimeoutSec_.
+     * When $connectionTimeoutSec_ is reached, the TCP connection is closed.
+     *
+     * @var int
+     */
+	private $connectionTimeoutSec_ = 0;
+
+    /**
+     * Connection timeout.
+     * @var int
+     */
+    private $connectionTimeoutUsec_ = 300000;
+
 	/**
 	 * Send timeout in seconds.
 	 *
 	 * Combined with sendTimeoutUsec this is used for send timeouts.
+     * When reached, the TCP connection is not closed, and no exception is thrown.
+     * This gives the chance to send enquire_link messages to preserve the connection before $connectionTimeoutSec_ is reached.
 	 *
 	 * @var int
 	 */
@@ -61,6 +82,8 @@ class TSocket extends TTransport {
 	 * Recv timeout in microseconds
 	 *
 	 * Combined with recvTimeoutSec this is used for recv timeouts.
+     * When reached, the TCP connection is not closed, and no exception is thrown.
+     * This gives the chance to send enquire_link messages to preserve the connection before $connectionTimeoutSec_ is reached.
 	 *
 	 * @var int
 	 */
@@ -73,19 +96,7 @@ class TSocket extends TTransport {
 	 */
 	protected $persist_ = FALSE;
 
-	/**
-	 * Debugging on?
-	 *
-	 * @var bool
-	 */
-	protected $debug_ = FALSE;
-
-	/**
-	 * Debug handler
-	 *
-	 * @var mixed
-	 */
-	protected $debugHandler_ = null;
+    protected $logger = null;
 
 	/**
 	 * Socket constructor
@@ -95,11 +106,16 @@ class TSocket extends TTransport {
 	 * @param bool   $persist      Whether to use a persistent socket
 	 * @param string $debugHandler Function to call for error logging
 	 */
-	public function __construct($host='localhost',$port=9090,$persist=FALSE,$debugHandler=null) {
+	public function __construct($host='localhost',$port=9090,$persist=FALSE, LoggerInterface $logger=null) {
 		$this->host_ = $host;
 		$this->port_ = $port;
 		$this->persist_ = $persist;
-		$this->debugHandler_ = $debugHandler ? $debugHandler : 'error_log';
+        $this->logger = $logger;
+
+        if($logger == null) {
+            $this->logger = new Logger('smpp');
+            $this->logger->pushHandler(new StreamHandler('php://stdout', Logger::DEBUG));
+        }
 	}
 
 	/**
@@ -109,6 +125,14 @@ class TSocket extends TTransport {
 	public function setHandle($handle) {
 		$this->handle_ = $handle;
 	}
+
+    /**
+     * @param $timeout int Timeout in milliseconds
+     */
+	public function setConnectionTimeout($timeout) {
+        $this->connectionTimeoutSec_ = floor($timeout / 1000);
+        $this->connectionTimeoutUsec_ = ($timeout - ($this->connectionTimeoutSec_ * 1000)) * 1000;
+    }
 
 	/**
 	 * Sets the send timeout.
@@ -128,19 +152,8 @@ class TSocket extends TTransport {
 	 */
 	public function setRecvTimeout($timeout) {
 		$this->recvTimeoutSec_ = floor($timeout / 1000);
-		$this->recvTimeoutUsec_ =
-		($timeout - ($this->recvTimeoutSec_ * 1000)) * 1000;
+		$this->recvTimeoutUsec_ = ($timeout - ($this->recvTimeoutSec_ * 1000)) * 1000;
 	}
-
-	/**
-	 * Sets debugging output on or off
-	 *
-	 * @param bool $debug
-	 */
-	public function setDebug($debug) {
-		$this->debug_ = $debug;
-	}
-
 	/**
 	 * Get the host that this socket is connected to
 	 *
@@ -189,21 +202,20 @@ class TSocket extends TTransport {
 			$this->port_,
 			$errno,
 			$errstr,
-			$this->sendTimeoutSec_ + ($this->sendTimeoutUsec_ / 1000000));
+			$this->connectionTimeoutSec_ + ($this->connectionTimeoutUsec_ / 1000000));
 		} else {
 			$this->handle_ = @fsockopen($this->host_,
 			$this->port_,
 			$errno,
 			$errstr,
-			$this->sendTimeoutSec_ + ($this->sendTimeoutUsec_ / 1000000));
+			$this->connectionTimeoutSec_ + ($this->connectionTimeoutUsec_ / 1000000));
 		}
 
 		// Connect failed?
 		if ($this->handle_ === FALSE) {
 			$error = 'TSocket: Could not connect to '.$this->host_.':'.$this->port_.' ('.$errstr.' ['.$errno.'])';
-			if ($this->debug_) {
-				call_user_func($this->debugHandler_, $error);
-			}
+            $this->logger->error($error);
+
 			throw new TException($error);
 		}
 	}
@@ -243,8 +255,8 @@ class TSocket extends TTransport {
 
 			return $data;
 		} else if ($readable === 0) {
-			throw new TTransportException('TSocket: timed out reading '.$len.' bytes from '.
-			$this->host_.':'.$this->port_);
+		    return null;
+			//throw new TTransportException('TSocket: timed out reading '.$len.' bytes from '. $this->host_.':'.$this->port_);
 		} else {
 			throw new TTransportException('TSocket: Could not read '.$len.' bytes from '.
 			$this->host_.':'.$this->port_);
