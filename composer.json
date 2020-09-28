@@ -13,7 +13,7 @@
     }
   ],
   "require": {
-    "php": ">=5.4",
+    "php": ">=7.1",
     "ext-sockets": "*",
     "ext-mbstring": "*"
   },
