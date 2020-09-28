@@ -13,17 +13,15 @@
     }
   ],
   "require": {
-    "php": ">=5.3.3",
+    "php": ">=5.4",
     "ext-sockets": "*",
     "ext-mbstring": "*"
   },
   "require-dev": {
   },
   "autoload": {
-    "files": [
-      "gsmencoder.class.php",
-      "sockettransport.class.php",
-      "smppclient.class.php"
-    ]
+    "psr-4": {
+      "smpp":   "src/"
+    }
   }
 }
