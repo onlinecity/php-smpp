@@ -346,6 +346,7 @@ class Client
             case SMPP::DATA_CODING_UCS2:
                 $singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
                 $csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
+                $messge = mb_convert_encoding($message, 'UCS-2');
                 break;
             case SMPP::DATA_CODING_DEFAULT:
                 $singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
@@ -438,7 +439,11 @@ class Client
         if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
 
         // Construct PDU with mandatory fields
-        $pdu = pack('a1cca'.(strlen($source->value)+1).'cca'.(strlen($destination->value)+1).'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1').'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
+        $pdu = pack(
+            'a1cca'.(strlen($source->value)+1)
+            .'cca'.(strlen($destination->value)+1)
+            .'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1')
+            .'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
             self::$sms_service_type,
             $source->ton,
             $source->npi,
