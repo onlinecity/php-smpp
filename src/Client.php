@@ -346,7 +346,7 @@ class Client
             case SMPP::DATA_CODING_UCS2:
                 $singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
                 $csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
-                $messge = mb_convert_encoding($message, 'UCS-2');
+                $message = mb_convert_encoding($message, 'UCS-2');
                 break;
             case SMPP::DATA_CODING_DEFAULT:
                 $singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
