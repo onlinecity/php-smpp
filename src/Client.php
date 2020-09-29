@@ -54,8 +54,10 @@ class Client
      * SMPP v3.4 says octect string are "not necessarily NULL terminated".
      * Switch to toggle this feature
      * @var boolean
+     *
+     * set NULL teminate octetstrings FALSE as default
      */
-    public static $sms_null_terminate_octetstrings  = true;
+    public static $sms_null_terminate_octetstrings  = false;
 
     /**
      * Use sar_msg_ref_num and sar_total_segments with 16 bit tags
@@ -707,6 +709,7 @@ class Client
      * @param integer $id - command ID
      * @param string $pduBody - PDU body
      * @return bool|Pdu
+     * @throws \Exception
      */
     protected function sendCommand($id, $pduBody)
     {
@@ -759,7 +762,7 @@ class Client
      *
      * @param integer $seq_number - PDU sequence number
      * @param integer $command_id - PDU command ID
-     * @return Pdu
+     * @return Pdu|bool
      * @throws SmppException
      */
     protected function readPDU_resp($seq_number, $command_id)
@@ -772,7 +775,8 @@ class Client
         for($i=0;$i<$ql;$i++) {
             $pdu=$this->pdu_queue[$i];
             if (
-                ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) ||
+                ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK))
+                ||
                 ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK)
             ) {
                 // remove response pdu from queue
@@ -785,8 +789,15 @@ class Client
         do{
             $pdu=$this->readPDU();
             if ($pdu) {
-                if ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)) return $pdu;
-                if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK) return $pdu;
+                if (
+                    $pdu->sequence == $seq_number
+                    && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)
+                ){
+                    return $pdu;
+                }
+                if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK){
+                    return $pdu;
+                }
                 array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
             }
         } while($pdu);
