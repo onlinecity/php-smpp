@@ -1,8 +1,8 @@
 {
   "name": "alexandr-mironov/php-smpp",
-  "description": "PHP-based SMPP client lib",
+  "description": "PHP SMPP client lib, fork of onlinecity/php-smpp",
   "keywords": ["smpp", "sms", "texting", "gsm"],
-  "homepage": "http://github.com/onlinecity/php-smpp",
+  "homepage": "https://github.com/alexandr-mironov/php-smpp",
   "type": "library",
   "license": "LGPL",
   "authors": [
@@ -13,7 +13,7 @@
     }
   ],
   "require": {
-    "php": ">=7.1",
+    "php": ">=5.4",
     "ext-sockets": "*",
     "ext-mbstring": "*"
   },

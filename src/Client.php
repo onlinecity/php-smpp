@@ -30,9 +30,9 @@ use smpp\transport\Socket;
  */
 class Client
 {
-    public const MODE_TRANSMITTER   = 'transmitter';
-    public const MODE_TRANSCEIVER   = 'transceiver';
-    public const MODE_RECEIVER      = 'receiver';
+    const MODE_TRANSMITTER   = 'transmitter';
+    const MODE_TRANSCEIVER   = 'transceiver';
+    const MODE_RECEIVER      = 'receiver';
 
     // SMPP bind parameters
     public static $system_type          = "WWW";
@@ -340,17 +340,23 @@ class Client
     {
         $msg_length = strlen($message);
 
-        if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) return false;
+        if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) {
+            return false;
+        }
 
         switch ($dataCoding) {
             case SMPP::DATA_CODING_UCS2:
-                $singleSmsOctetLimit = 140; // in octets, 70 UCS-2 chars
-                $csmsSplit = 132; // There are 133 octets available, but this would split the UCS the middle so use 132 instead
+                // in octets, 70 UCS-2 chars
+                $singleSmsOctetLimit = 140;
+                // There are 133 octets available, but this would split the UCS the middle so use 132 instead
+                $csmsSplit = 132;
                 $message = mb_convert_encoding($message, 'UCS-2');
                 break;
             case SMPP::DATA_CODING_DEFAULT:
-                $singleSmsOctetLimit = 160; // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
-                $csmsSplit = (self::$csms_method == Client::CSMS_8BIT_UDH) ? 153 : 152; // send 152/153 chars in each SMS (SMSC will format data)
+                // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
+                $singleSmsOctetLimit = 160;
+                // send 152/153 chars in each SMS (SMSC will format data)
+                $csmsSplit = (self::$csms_method == self::CSMS_8BIT_UDH) ? 153 : 152;
                 break;
             default:
                 $singleSmsOctetLimit = 254; // From SMPP standard
@@ -360,7 +366,7 @@ class Client
         // Figure out if we need to do CSMS, since it will affect our PDU
         if ($msg_length > $singleSmsOctetLimit) {
             $doCsms = true;
-            if (self::$csms_method != Client::CSMS_PAYLOAD) {
+            if (self::$csms_method != self::CSMS_PAYLOAD) {
                 $parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
                 $short_message = reset($parts);
                 $csmsReference = $this->getCsmsReference();
@@ -372,7 +378,7 @@ class Client
 
         // Deal with CSMS
         if ($doCsms) {
-            if (self::$csms_method == Client::CSMS_PAYLOAD) {
+            if (self::$csms_method == self::CSMS_PAYLOAD) {
                 $payload = new Tag(Tag::MESSAGE_PAYLOAD, $message, $msg_length);
                 return $this->submit_sm(
                     $from,
@@ -384,11 +390,21 @@ class Client
                     $scheduleDeliveryTime,
                     $validityPeriod
                 );
-            } else if (self::$csms_method == Client::CSMS_8BIT_UDH) {
+            } else if (self::$csms_method == self::CSMS_8BIT_UDH) {
                 $seqnum = 1;
                 foreach ($parts as $part) {
                     $udh = pack('cccccc',5,0,3,substr($csmsReference,1,1),count($parts),$seqnum);
-                    $res = $this->submit_sm($from, $to, $udh.$part, $tags, $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod, (SmppClient::$sms_esm_class|0x40));
+                    $res = $this->submit_sm(
+                        $from,
+                        $to,
+                        $udh.$part,
+                        $tags,
+                        $dataCoding,
+                        $priority,
+                        $scheduleDeliveryTime,
+                        $validityPeriod,
+                        (self::$sms_esm_class|0x40)
+                    );
                     $seqnum++;
                 }
                 return $res;
@@ -397,7 +413,7 @@ class Client
                 $sar_total_segments = new Tag(Tag::SAR_TOTAL_SEGMENTS, count($parts), 1, 'c');
                 $seqnum = 1;
                 foreach ($parts as $part) {
-                    $sartags = array($sar_msg_ref_num, $sar_total_segments, new Tag(Tag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c'));
+                    $sartags = [$sar_msg_ref_num, $sar_total_segments, new Tag(Tag::SAR_SEGMENT_SEQNUM, $seqnum, 1, 'c')];
                     $res = $this->submit_sm($from, $to, $part, (empty($tags) ? $sartags : array_merge($tags,$sartags)), $dataCoding, $priority, $scheduleDeliveryTime, $validityPeriod);
                     $seqnum++;
                 }
