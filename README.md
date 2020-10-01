@@ -1,6 +1,11 @@
 PHP SMPP (v3.4) client
 ====
-Example of wrapper (php>=7.0) for this Client
+
+Install:
+
+    composer require alexandr-mironov/php-smpp
+    
+Example of wrapper (php>=7.0) for this Client.
 In this case we got ALPHANUMERIC sender value 'github_example':
 
 ```php
