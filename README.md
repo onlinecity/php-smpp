@@ -1,5 +1,5 @@
-#PHP SMPP (v3.4) client
-
+PHP SMPP (v3.4) client
+====
 Example of wrapper (php>=7.0) for this Client
 In this case we got ALPHANUMERIC sender value 'github_example':
 
@@ -115,7 +115,9 @@ This wrapper implement some kind of Builder pattern, usage example:
     ->setRecipient('79000000000', \smpp\SMPP::TON_INTERNATIONAL) //msisdn of recipient
     ->sendMessage('Тестовое сообщение на русском and @noth3r$Ymb0ls');
 ```
-#Original description
+
+Original description
+=======
 PHP-based SMPP client lib
 =============
 
@@ -126,78 +128,6 @@ In addition to the client, this lib also contains an encoder for converting UTF-
 This lib has changed significantly from it's first release, which required namespaces and included some worker components. You'll find that release at [1.0.1-namespaced](https://github.com/onlinecity/php-smpp/tree/1.0.1-namespaced)
 
 This lib requires the [sockets](http://www.php.net/manual/en/book.sockets.php) PHP-extension, and is not supported on Windows. A [windows-compatible](https://github.com/onlinecity/php-smpp/tree/windows-compatible) version is also available.
-
-
-Basic usage example
------
-
-To send a SMS you can do:
-
-``` php
-<?php
-require_once 'smppclient.class.php';
-require_once 'gsmencoder.class.php';
-require_once 'sockettransport.class.php';
-
-// Construct transport and client
-$transport = new SocketTransport(array('smpp.provider.com'),2775);
-$transport->setRecvTimeout(10000);
-$smpp = new SmppClient($transport);
-
-// Activate binary hex-output of server interaction
-$smpp->debug = true;
-$transport->debug = true;
-
-// Open the connection
-$transport->open();
-$smpp->bindTransmitter("USERNAME","PASSWORD");
-
-// Optional connection specific overrides
-//SmppClient::$sms_null_terminate_octetstrings = false;
-//SmppClient::$csms_method = SmppClient::CSMS_PAYLOAD;
-//SmppClient::$sms_registered_delivery_flag = SMPP::REG_DELIVERY_SMSC_BOTH;
-
-// Prepare message
-$message = 'H€llo world';
-$encodedMessage = GsmEncoder::utf8_to_gsm0338($message);
-$from = new SmppAddress('SMPP Test',SMPP::TON_ALPHANUMERIC);
-$to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
-
-// Send
-$smpp->sendSMS($from,$to,$encodedMessage,$tags);
-
-// Close connection
-$smpp->close();
-```
-
-To receive a SMS (or delivery receipt):
-
-``` php
-<?php
-require_once 'smppclient.class.php';
-require_once 'sockettransport.class.php';
-
-// Construct transport and client
-$transport = new SocketTransport(array('smpp.provider.com'),3600);
-$transport->setRecvTimeout(60000); // for this example wait up to 60 seconds for data
-$smpp = new SmppClient($transport);
-
-// Activate binary hex-output of server interaction
-$smpp->debug = true;
-$transport->debug = true;
-
-// Open the connection
-$transport->open();
-$smpp->bindReceiver("USERNAME","PASSWORD");
-
-// Read SMS and output
-$sms = $smpp->readSMS();
-echo "SMS:\n";
-var_dump($sms);
-
-// Close connection
-$smpp->close();
-```
 
 
 Connection pools
