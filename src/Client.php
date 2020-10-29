@@ -35,20 +35,20 @@ class Client
     const MODE_RECEIVER      = 'receiver';
 
     // SMPP bind parameters
-    public static $system_type          = "WWW";
-    public static $interface_version    = 0x34;
-    public static $addr_ton             = 0;
-    public static $addr_npi             = 0;
-    public static $address_range        = "";
+    public static $systemType           = "WWW";
+    public static $interfaceVersion     = 0x34;
+    public static $addrTon              = 0;
+    public static $addrNPI              = 0;
+    public static $addressRange         = "";
 
     // ESME transmitter parameters
-    public static $sms_service_type             = "";
-    public static $sms_esm_class                = 0x00;
-    public static $sms_protocol_id              = 0x00;
-    public static $sms_priority_flag            = 0x00;
-    public static $sms_registered_delivery_flag = 0x00;
-    public static $sms_replace_if_present_flag  = 0x00;
-    public static $sms_sm_default_msg_id        = 0x00;
+    public static $smsServiceType               = "";
+    public static $smsEsmClass                  = 0x00;
+    public static $smsProtocolID                = 0x00;
+    public static $smsPriorityFlag              = 0x00;
+    public static $smsRegisteredDeliveryFlag    = 0x00;
+    public static $smsReplaceIfPresentFlag      = 0x00;
+    public static $smsSmDefaultMessageID        = 0x00;
 
     /**
      * SMPP v3.4 says octect string are "not necessarily NULL terminated".
@@ -57,7 +57,7 @@ class Client
      *
      * set NULL teminate octetstrings FALSE as default
      */
-    public static $sms_null_terminate_octetstrings  = false;
+    public static $smsNullTerminateOctetstrings = false;
 
     /**
      * Use sar_msg_ref_num and sar_total_segments with 16 bit tags
@@ -77,11 +77,11 @@ class Client
      */
     const CSMS_8BIT_UDH = 2;
 
-    public static $csms_method = self::CSMS_16BIT_TAGS;
+    public static $csmsMethod = self::CSMS_16BIT_TAGS;
 
     public $debug;
 
-    protected $pdu_queue;
+    protected $pduQueue;
 
     protected $transport;
     protected $debugHandler;
@@ -91,8 +91,8 @@ class Client
     private $login;
     private $pass;
 
-    protected $sequence_number;
-    protected $sar_msg_ref_num;
+    protected $sequenceNumber;
+    protected $sarMessageReferenceNumber;
 
     /**
      * Construct the SMPP class
@@ -103,9 +103,9 @@ class Client
     public function __construct(Socket $transport, $debugHandler=null)
     {
         // Internal parameters
-        $this->sequence_number=1;
+        $this->sequenceNumber=1;
         $this->debug=false;
-        $this->pdu_queue=array();
+        $this->pduQueue=array();
 
         $this->transport = $transport;
         $this->debugHandler = $debugHandler ? $debugHandler : 'error_log';
@@ -124,7 +124,7 @@ class Client
         if (!$this->transport->isOpen()) return false;
         if($this->debug) call_user_func($this->debugHandler, 'Binding receiver...');
 
-        $response = $this->_bind($login, $pass, SMPP::BIND_RECEIVER);
+        $response = $this->bind($login, $pass, SMPP::BIND_RECEIVER);
 
         if($this->debug){
             call_user_func($this->debugHandler, "Binding status  : ".$response->status);
@@ -151,7 +151,7 @@ class Client
             call_user_func($this->debugHandler, 'Binding transmitter...');
         }
 
-        $response = $this->_bind($login, $pass, SMPP::BIND_TRANSMITTER);
+        $response = $this->bind($login, $pass, SMPP::BIND_TRANSMITTER);
 
         if($this->debug){
             call_user_func($this->debugHandler, "Binding status  : ".$response->status);
@@ -172,7 +172,7 @@ class Client
             return false;
         }
 
-        $response = $this->_bind($login, $pass, SMPP::BIND_TRANSCEIVER);
+        $response = $this->bind($login, $pass, SMPP::BIND_TRANSCEIVER);
 
         if($this->debug){
             call_user_func($this->debugHandler, "Binding status  : ".$response->status);
@@ -249,25 +249,31 @@ class Client
      *    message_state would be one of the SMPP::STATE_* constants. (SMPP v3.4 section 5.2.28)
      *    error_code depends on the telco network, so could be anything.
      *
-     * @param string $messageid
+     * @param string $messageID
      * @param Address $source
      * @return array
      * @throws \Exception
      */
-    public function queryStatus($messageid,Address $source)
+    public function queryStatus($messageID, Address $source)
     {
-        $pduBody = pack('a'.(strlen($messageid)+1).'cca'.(strlen($source->value)+1),$messageid,$source->ton,$source->npi,$source->value);
+        $pduBody = pack(
+            'a'.(strlen($messageID)+1).'cca'.(strlen($source->value)+1),
+            $messageID,
+            $source->ton,
+            $source->npi,
+            $source->value
+        );
         $reply = $this->sendCommand(SMPP::QUERY_SM, $pduBody);
         if (!$reply || $reply->status != SMPP::ESME_ROK) return null;
 
         // Parse reply
-        $posId = strpos($reply->body,"\0",0);
-        $posDate = strpos($reply->body,"\0",$posId+1);
+        $posID = strpos($reply->body,"\0",0);
+        $posDate = strpos($reply->body,"\0",$posID+1);
         $data = array();
-        $data['message_id'] = substr($reply->body,0,$posId);
-        $data['final_date'] = substr($reply->body,$posId,$posDate-$posId);
+        $data['message_id'] = substr($reply->body, 0, $posID);
+        $data['final_date'] = substr($reply->body, $posID,$posDate-$posID);
         $data['final_date'] = $data['final_date'] ? $this->parseSmppTime(trim($data['final_date'])) : null;
-        $status = unpack("cmessage_state/cerror_code",substr($reply->body,$posDate+1));
+        $status = unpack("cmessage_state/cerror_code", substr($reply->body,$posDate+1));
         return array_merge($data,$status);
     }
 
@@ -278,14 +284,14 @@ class Client
      */
     public function readSMS()
     {
-        $command_id=SMPP::DELIVER_SM;
+        $commandID=SMPP::DELIVER_SM;
         // Check the queue
-        $ql = count($this->pdu_queue);
-        for($i=0;$i<$ql;$i++) {
-            $pdu=$this->pdu_queue[$i];
-            if($pdu->id==$command_id) {
+        $queueLength = count($this->pduQueue);
+        for($i=0;$i<$queueLength;$i++) {
+            $pdu=$this->pduQueue[$i];
+            if($pdu->id==$commandID) {
                 //remove response
-                array_splice($this->pdu_queue, $i, 1);
+                array_splice($this->pduQueue, $i, 1);
                 return $this->parseSMS($pdu);
             }
         }
@@ -299,10 +305,10 @@ class Client
             if($pdu->id==SMPP::ENQUIRE_LINK) {
                 $response = new Pdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00");
                 $this->sendPDU($response);
-            } else if ($pdu->id!=$command_id) { // if this is not the correct PDU add to queue
-                array_push($this->pdu_queue, $pdu);
+            } else if ($pdu->id!=$commandID) { // if this is not the correct PDU add to queue
+                array_push($this->pduQueue, $pdu);
             }
-        } while($pdu && $pdu->id!=$command_id);
+        } while($pdu && $pdu->id!=$commandID);
 
         if($pdu) {
             return $this->parseSMS($pdu);
@@ -358,7 +364,7 @@ class Client
                 // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
                 $singleSmsOctetLimit = 160;
                 // send 152/153 chars in each SMS (SMSC will format data)
-                $csmsSplit = (self::$csms_method == self::CSMS_8BIT_UDH) ? 153 : 152;
+                $csmsSplit = (self::$csmsMethod == self::CSMS_8BIT_UDH) ? 153 : 152;
                 break;
             default:
                 $singleSmsOctetLimit = 254; // From SMPP standard
@@ -368,7 +374,7 @@ class Client
         // Figure out if we need to do CSMS, since it will affect our PDU
         if ($messageLength > $singleSmsOctetLimit) {
             $doCsms = true;
-            if (self::$csms_method != self::CSMS_PAYLOAD) {
+            if (self::$csmsMethod != self::CSMS_PAYLOAD) {
                 $parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
                 $short_message = reset($parts);
                 $csmsReference = $this->getCsmsReference();
@@ -380,7 +386,7 @@ class Client
 
         // Deal with CSMS
         if ($doCsms) {
-            if (self::$csms_method == self::CSMS_PAYLOAD) {
+            if (self::$csmsMethod == self::CSMS_PAYLOAD) {
                 $payload = new Tag(Tag::MESSAGE_PAYLOAD, $message, $messageLength);
                 return $this->submit_sm(
                     $from,
@@ -392,7 +398,7 @@ class Client
                     $scheduleDeliveryTime,
                     $validityPeriod
                 );
-            } else if (self::$csms_method == self::CSMS_8BIT_UDH) {
+            } else if (self::$csmsMethod == self::CSMS_8BIT_UDH) {
                 $seqnum = 1;
                 foreach ($parts as $part) {
                     $udh = pack('cccccc',5,0,3,substr($csmsReference,1,1),count($parts),$seqnum);
@@ -405,7 +411,7 @@ class Client
                         $priority,
                         $scheduleDeliveryTime,
                         $validityPeriod,
-                        (self::$sms_esm_class|0x40)
+                        (self::$smsEsmClass|0x40)
                     );
                     $seqnum++;
                 }
@@ -454,15 +460,15 @@ class Client
         $esmClass=null
     )
     {
-        if (is_null($esmClass)) $esmClass = self::$sms_esm_class;
+        if (is_null($esmClass)) $esmClass = self::$smsEsmClass;
 
         // Construct PDU with mandatory fields
         $pdu = pack(
             'a1cca'.(strlen($source->value)+1)
             .'cca'.(strlen($destination->value)+1)
             .'ccc'.($scheduleDeliveryTime ? 'a16x' : 'a1').($validityPeriod ? 'a16x' : 'a1')
-            .'ccccca'.(strlen($short_message)+(self::$sms_null_terminate_octetstrings ? 1 : 0)),
-            self::$sms_service_type,
+            .'ccccca'.(strlen($short_message)+(self::$smsNullTerminateOctetstrings ? 1 : 0)),
+            self::$smsServiceType,
             $source->ton,
             $source->npi,
             $source->value,
@@ -470,14 +476,14 @@ class Client
             $destination->npi,
             $destination->value,
             $esmClass,
-            self::$sms_protocol_id,
+            self::$smsProtocolID,
             $priority,
             $scheduleDeliveryTime,
             $validityPeriod,
-            self::$sms_registered_delivery_flag,
-            self::$sms_replace_if_present_flag,
+            self::$smsRegisteredDeliveryFlag,
+            self::$smsReplaceIfPresentFlag,
             $dataCoding,
-            self::$sms_sm_default_msg_id,
+            self::$smsSmDefaultMessageID,
             strlen($short_message),//sm_length
             $short_message//short_message
         );
@@ -500,16 +506,16 @@ class Client
      */
     protected function getCsmsReference()
     {
-        $limit = (self::$csms_method == self::CSMS_8BIT_UDH) ? 255 : 65535;
-        if (!isset($this->sar_msg_ref_num)) {
-            $this->sar_msg_ref_num = mt_rand(0,$limit);
+        $limit = (self::$csmsMethod == self::CSMS_8BIT_UDH) ? 255 : 65535;
+        if (!isset($this->sarMessageReferenceNumber)) {
+            $this->sarMessageReferenceNumber = mt_rand(0,$limit);
         }
-        $this->sar_msg_ref_num++;
+        $this->sarMessageReferenceNumber++;
 
-        if ($this->sar_msg_ref_num>$limit) {
-            $this->sar_msg_ref_num = 0;
+        if ($this->sarMessageReferenceNumber>$limit) {
+            $this->sarMessageReferenceNumber = 0;
         }
-        return $this->sar_msg_ref_num;
+        return $this->sarMessageReferenceNumber;
     }
 
 
@@ -567,23 +573,27 @@ class Client
      * Binds the socket and opens the session on SMSC
      * @param string $login - ESME system_id
      * @param $pass
-     * @param $command_id
+     * @param $commandID
      * @return bool|Pdu
+     * @throws \Exception
      */
-    protected function _bind($login, $pass, $command_id)
+    protected function bind($login, $pass, $commandID)
     {
         // Make PDU body
         $pduBody = pack(
             'a'.(strlen($login)+1).
             'a'.(strlen($pass)+1).
-            'a'.(strlen(self::$system_type)+1).
-            'CCCa'.(strlen(self::$address_range)+1),
-            $login, $pass, self::$system_type,
-            self::$interface_version, self::$addr_ton,
-            self::$addr_npi, self::$address_range
+            'a'.(strlen(self::$systemType)+1).
+            'CCCa'.(strlen(self::$addressRange)+1),
+            $login, $pass,
+            self::$systemType,
+            self::$interfaceVersion,
+            self::$addrTon,
+            self::$addrNPI,
+            self::$addressRange
         );
 
-        $response=$this->sendCommand($command_id,$pduBody);
+        $response=$this->sendCommand($commandID, $pduBody);
         if ($response->status != SMPP::ESME_ROK){
             throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
         }
@@ -605,17 +615,19 @@ class Client
         $ar=unpack("C*",$pdu->body);
 
         // Read mandatory params
-        $service_type = $this->getString($ar,6,true);
+        $serviceType = $this->getString($ar,6,true);
 
-        $source_addr_ton = next($ar);
-        $source_addr_npi = next($ar);
-        $source_addr = $this->getString($ar,21);
-        $source = new Address($source_addr,$source_addr_ton,$source_addr_npi);
+        //
+        $sourceAddrTon  = next($ar);
+        $sourceAddrNPI  = next($ar);
+        $sourceAddr     = $this->getString($ar,21);
+        $source         = new Address($sourceAddr, $sourceAddrTon, $sourceAddrNPI);
 
-        $dest_addr_ton = next($ar);
-        $dest_addr_npi = next($ar);
-        $destination_addr = $this->getString($ar,21);
-        $destination = new Address($destination_addr,$dest_addr_ton,$dest_addr_npi);
+        //
+        $destinationAddrTon = next($ar);
+        $destinationAddrNPI = next($ar);
+        $destinationAddr    = $this->getString($ar,21);
+        $destination        = new Address($destinationAddr, $destinationAddrTon, $destinationAddrNPI);
 
         $esmClass = next($ar);
         $protocolId = next($ar);
@@ -641,14 +653,44 @@ class Client
         }
 
         if (($esmClass & SMPP::ESM_DELIVER_SMSC_RECEIPT) != 0) {
-            $sms = new DeliveryReceipt($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
+            $sms = new DeliveryReceipt(
+                $pdu->id,
+                $pdu->status,
+                $pdu->sequence,
+                $pdu->body,
+                $serviceType,
+                $source,
+                $destination,
+                $esmClass,
+                $protocolId,
+                $priorityFlag,
+                $registeredDelivery,
+                $dataCoding,
+                $message,
+                $tags
+            );
             $sms->parseDeliveryReceipt();
         } else {
-            $sms = new Sms($pdu->id, $pdu->status, $pdu->sequence, $pdu->body, $service_type, $source, $destination, $esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags);
+            $sms = new Sms(
+                $pdu->id,
+                $pdu->status,
+                $pdu->sequence,
+                $pdu->body,
+                $serviceType,
+                $source,
+                $destination,
+                $esmClass,
+                $protocolId,
+                $priorityFlag,
+                $registeredDelivery,
+                $dataCoding,
+                $message,
+                $tags
+            );
         }
 
         if($this->debug) {
-            call_user_func($this->debugHandler, "Received sms:\n".print_r($sms,true));
+            call_user_func($this->debugHandler, "Received sms:\n" . print_r($sms,true));
         }
 
         // Send response of recieving sms
@@ -660,6 +702,7 @@ class Client
     /**
      * Send the enquire link command.
      * @return Pdu
+     * @throws \Exception
      */
     public function enquireLink()
     {
@@ -676,12 +719,12 @@ class Client
     public function respondEnquireLink()
     {
         // Check the queue first
-        $ql = count($this->pdu_queue);
-        for($i=0;$i<$ql;$i++) {
-            $pdu=$this->pdu_queue[$i];
+        $queueLength = count($this->pduQueue);
+        for($i=0; $i<$queueLength; $i++) {
+            $pdu=$this->pduQueue[$i];
             if($pdu->id==SMPP::ENQUIRE_LINK) {
                 //remove response
-                array_splice($this->pdu_queue, $i, 1);
+                array_splice($this->pduQueue, $i, 1);
                 $this->sendPDU(new Pdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00"));
             }
         }
@@ -692,7 +735,7 @@ class Client
             if($pdu->id==SMPP::ENQUIRE_LINK) {
                 $this->sendPDU(new Pdu(SMPP::ENQUIRE_LINK_RESP, SMPP::ESME_ROK, $pdu->sequence, "\x00"));
             } else if ($pdu) {
-                array_push($this->pdu_queue, $pdu);
+                array_push($this->pduQueue, $pdu);
             }
         }
     }
@@ -707,7 +750,7 @@ class Client
         $this->close();
         sleep(1);
         $this->transport->open();
-        $this->sequence_number = 1;
+        $this->sequenceNumber = 1;
 
         switch($this->mode){
             case self::MODE_TRANSMITTER:{
@@ -739,9 +782,9 @@ class Client
         if (!$this->transport->isOpen()) {
             return false;
         }
-        $pdu = new Pdu($id, 0, $this->sequence_number, $pduBody);
+        $pdu = new Pdu($id, 0, $this->sequenceNumber, $pduBody);
         $this->sendPDU($pdu);
-        $response=$this->readPDU_resp($this->sequence_number, $pdu->id);
+        $response = $this->readPduResponse($this->sequenceNumber, $pdu->id);
 
         if ($response === false){
             throw new SmppException('Failed to read reply to command: 0x'.dechex($id));
@@ -751,10 +794,10 @@ class Client
             throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
         }
 
-        $this->sequence_number++;
+        $this->sequenceNumber++;
 
         // Reached max sequence number, spec does not state what happens now, so we re-connect
-        if ($this->sequence_number >= 0x7FFFFFFF) {
+        if ($this->sequenceNumber >= 0x7FFFFFFF) {
             $this->reconnect();
         }
 
@@ -767,8 +810,8 @@ class Client
      */
     protected function sendPDU(Pdu $pdu)
     {
-        $length=strlen($pdu->body) + 16;
-        $header=pack("NNNN", $length, $pdu->id, $pdu->status, $pdu->sequence);
+        $length = strlen($pdu->body) + 16;
+        $header = pack("NNNN", $length, $pdu->id, $pdu->status, $pdu->sequence);
         if($this->debug) {
             call_user_func($this->debugHandler, "Send PDU         : $length bytes");
             call_user_func($this->debugHandler, ' '.chunk_split(bin2hex($header.$pdu->body),2," "));
@@ -783,27 +826,27 @@ class Client
      * If a GENERIC_NACK with a matching sequence number, or null sequence is received instead it's also accepted.
      * Some SMPP servers, ie. logica returns GENERIC_NACK on errors.
      *
-     * @param integer $seq_number - PDU sequence number
-     * @param integer $command_id - PDU command ID
+     * @param integer $sequenceNumber - PDU sequence number
+     * @param integer $commandID - PDU command ID
      * @return Pdu|bool
      * @throws SmppException
      */
-    protected function readPDU_resp($seq_number, $command_id)
+    protected function readPduResponse($sequenceNumber, $commandID)
     {
-        // Get response cmd id from command id
-        $command_id=$command_id|SMPP::GENERIC_NACK;
+        // Get response cmd id from command ID
+        $commandID = $commandID | SMPP::GENERIC_NACK;
 
         // Check the queue first
-        $ql = count($this->pdu_queue);
-        for($i=0;$i<$ql;$i++) {
-            $pdu=$this->pdu_queue[$i];
+        $queueLength = count($this->pduQueue);
+        for($i=0; $i < $queueLength; $i++) {
+            $pdu = $this->pduQueue[$i];
             if (
-                ($pdu->sequence == $seq_number && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK))
+                ($pdu->sequence == $sequenceNumber && ($pdu->id == $commandID || $pdu->id == SMPP::GENERIC_NACK))
                 ||
                 ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK)
             ) {
                 // remove response pdu from queue
-                array_splice($this->pdu_queue, $i, 1);
+                array_splice($this->pduQueue, $i, 1);
                 return $pdu;
             }
         }
@@ -813,15 +856,15 @@ class Client
             $pdu=$this->readPDU();
             if ($pdu) {
                 if (
-                    $pdu->sequence == $seq_number
-                    && ($pdu->id == $command_id || $pdu->id == SMPP::GENERIC_NACK)
+                    $pdu->sequence == $sequenceNumber
+                    && ($pdu->id == $commandID || $pdu->id == SMPP::GENERIC_NACK)
                 ){
                     return $pdu;
                 }
                 if ($pdu->sequence == null && $pdu->id == SMPP::GENERIC_NACK){
                     return $pdu;
                 }
-                array_push($this->pdu_queue, $pdu); // unknown PDU push to queue
+                array_push($this->pduQueue, $pdu); // unknown PDU push to queue
             }
         } while($pdu);
         return false;
@@ -880,11 +923,11 @@ class Client
      * Reads until $maxlen or null byte.
      *
      * @param array $ar - input array
-     * @param integer $maxlen - maximum length to read.
+     * @param integer $maxLength - maximum length to read.
      * @param boolean $firstRead - is this the first bytes read from array?
      * @return string.
      */
-    protected function getString(&$ar, $maxlen=255, $firstRead=false)
+    protected function getString(&$ar, $maxLength = 255, $firstRead=false)
     {
         $s="";
         $i=0;
@@ -892,7 +935,7 @@ class Client
             $c = ($firstRead && $i==0) ? current($ar) : next($ar);
             if ($c != 0) $s .= chr($c);
             $i++;
-        } while($i<$maxlen && $c !=0);
+        } while($i<$maxLength && $c !=0);
         return $s;
     }
 
@@ -907,9 +950,11 @@ class Client
     protected function getOctets(&$ar,$length)
     {
         $s = "";
-        for($i=0;$i<$length;$i++) {
+        for($i=0; $i < $length; $i++) {
             $c = next($ar);
-            if ($c === false) return $s;
+            if ($c === false){
+                return $s;
+            }
             $s .= chr($c);
         }
         return $s;
@@ -917,7 +962,11 @@ class Client
 
     protected function parseTag(&$ar)
     {
-        $unpackedData = unpack('nid/nlength',pack("C2C2",next($ar),next($ar),next($ar),next($ar)));
+        $unpackedData = unpack(
+            'nid/nlength',
+            pack("C2C2",next($ar),next($ar),next($ar),next($ar))
+        );
+
         if (!$unpackedData){
             throw new \InvalidArgumentException('Could not read tag data');
         }
@@ -937,9 +986,9 @@ class Client
         $tag = new Tag($id, $value, $length);
         if ($this->debug) {
             call_user_func($this->debugHandler, "Parsed tag:");
-            call_user_func($this->debugHandler, " id     :0x".dechex($tag->id));
-            call_user_func($this->debugHandler, " length :".$tag->length);
-            call_user_func($this->debugHandler, " value  :".chunk_split(bin2hex($tag->value),2," "));
+            call_user_func($this->debugHandler, " id     :0x" . dechex($tag->id));
+            call_user_func($this->debugHandler, " length :" . $tag->length);
+            call_user_func($this->debugHandler, " value  :" . chunk_split(bin2hex($tag->value),2," "));
         }
         return $tag;
     }
