@@ -338,9 +338,9 @@ class Client
         $validityPeriod=null
     )
     {
-        $msg_length = strlen($message);
+        $messageLength = strlen($message);
 
-        if ($msg_length>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) {
+        if ($messageLength>160 && $dataCoding != SMPP::DATA_CODING_UCS2 && $dataCoding != SMPP::DATA_CODING_DEFAULT) {
             return false;
         }
 
@@ -351,6 +351,8 @@ class Client
                 // There are 133 octets available, but this would split the UCS the middle so use 132 instead
                 $csmsSplit = 132;
                 $message = mb_convert_encoding($message, 'UCS-2');
+                //Update message length with current encoding
+                $messageLength = mb_strlen($message);
                 break;
             case SMPP::DATA_CODING_DEFAULT:
                 // we send data in octets, but GSM 03.38 will be packed in septets (7-bit) by SMSC.
@@ -364,7 +366,7 @@ class Client
         }
 
         // Figure out if we need to do CSMS, since it will affect our PDU
-        if ($msg_length > $singleSmsOctetLimit) {
+        if ($messageLength > $singleSmsOctetLimit) {
             $doCsms = true;
             if (self::$csms_method != self::CSMS_PAYLOAD) {
                 $parts = $this->splitMessageString($message, $csmsSplit, $dataCoding);
@@ -379,7 +381,7 @@ class Client
         // Deal with CSMS
         if ($doCsms) {
             if (self::$csms_method == self::CSMS_PAYLOAD) {
-                $payload = new Tag(Tag::MESSAGE_PAYLOAD, $message, $msg_length);
+                $payload = new Tag(Tag::MESSAGE_PAYLOAD, $message, $messageLength);
                 return $this->submit_sm(
                     $from,
                     $to,
