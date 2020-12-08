@@ -619,11 +619,11 @@ class SmppClient
 		$response=$this->readPDU_resp($this->sequence_number, $pdu->id);
 		if ($response === false) throw new SmppException('Failed to read reply to command: 0x'.dechex($id));
 		
-		if ($response->status != SMPP::ESME_ROK) throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
-		
 		$this->sequence_number++;
 		
-		// Reached max sequence number, spec does not state what happens now, so we re-connect
+		if ($response->status != SMPP::ESME_ROK) throw new SmppException(SMPP::getStatusMessage($response->status), $response->status);
+		
+				// Reached max sequence number, spec does not state what happens now, so we re-connect
 		if ($this->sequence_number >= 0x7FFFFFFF) {
 			$this->reconnect();
 		}
