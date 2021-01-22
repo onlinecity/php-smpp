@@ -11,7 +11,7 @@ In addition to the client, this lib also contains an encoder for converting UTF-
 
 This lib has changed significantly from it's first release, which required namespaces and included some worker components. You'll find that release at [1.0.1-namespaced](https://github.com/onlinecity/php-smpp/tree/1.0.1-namespaced)
 
-This lib requires the [sockets](http://www.php.net/manual/en/book.sockets.php) PHP-extension, and is not supported on Windows. A [windows-compatible](https://github.com/onlinecity/php-smpp/tree/windows-compatible) version is also available.
+This lib requires the [sockets](https://www.php.net/manual/en/book.sockets.php) PHP extension, and is not supported on Windows. A [windows-compatible](https://github.com/onlinecity/php-smpp/tree/windows-compatible) version is also available.
 
 
 Basic usage example
@@ -50,7 +50,7 @@ $from = new SmppAddress('SMPP Test',SMPP::TON_ALPHANUMERIC);
 $to = new SmppAddress(4512345678,SMPP::TON_INTERNATIONAL,SMPP::NPI_E164);
 
 // Send
-$smpp->sendSMS($from,$to,$encodedMessage,$tags);
+$smpp->sendSMS($from,$to,$encodedMessage);
 
 // Close connection
 $smpp->close();
