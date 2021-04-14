@@ -783,6 +783,25 @@ class SmppClient
 		}
 		return $tag;
 	}
+
+	/* Akshath 
+	 * Added new functions to override default plugin params
+	 */
+	public function setSystemType($system_type) {
+		self::$system_type = $system_type;
+	}
+	
+	public function setAddressTON($ton) {
+		self::$addr_ton = $ton;
+	}
+	
+	public function setAddressNPI($npi) {
+		self::$addr_npi = $npi;
+	}
+	
+	public function setAddressRange($address_range) {
+		self::$address_range = $address_range;
+	}
 	
 }
 
