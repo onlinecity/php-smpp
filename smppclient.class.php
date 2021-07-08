@@ -518,7 +518,11 @@ class SmppClient
 		$dataCoding = next($ar);
 		next($ar); // sm_default_msg_id 
 		$sm_length = next($ar);
-		$message = $this->getString($ar,$sm_length);
+        if ($sm_length > 0) {                               // getString is doing "next()" on $ar
+            $message = $this->getString($ar, $sm_length);   // but it shouldn't for 0-length,not-null-terminated value
+        } else {
+            $message = null;
+        }
 		
 		// Check for optional params, and parse them
 		if (current($ar) !== false) {
