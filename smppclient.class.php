@@ -518,6 +518,30 @@ class SmppClient
 		$dataCoding = next($ar);
 		next($ar); // sm_default_msg_id 
 		$sm_length = next($ar);
+
+		$udhi = null;
+
+		if(($esmClass & SMPP::ESM_UDHI) != 0) { // Message has a UDHI
+
+			$udhi = new stdClass();
+
+			$udhi->length = next($ar);
+			$udhi->iei = next($ar);
+
+			next($ar); // iedl_length
+			
+			if($udhi->iei == 0x00) { // Information-Element-Identifier = 0x00 = Concatenated short messages, 8-bit reference number
+
+				$udhi->concat = new stdClass();
+
+				$udhi->concat->identifier = (int)next($ar);
+				$udhi->concat->parts = next($ar);
+				$udhi->concat->part = next($ar);
+
+			}
+
+		}
+
 		$message = $this->getString($ar,$sm_length);
 		
 		// Check for optional params, and parse them
@@ -908,7 +932,7 @@ class SMPP
 	const ESM_DELIVER_CONV_ABORT = 0x18;
 	const ESM_DELIVER_IDN = 0x20; // Intermediate delivery notification
 	// ESM bits 7-6 
-	const ESM_UHDI = 0x40;
+	const ESM_UDHI = 0x40;
 	const ESM_REPLYPATH = 0x80;
 	
 	// SMPP v3.4 - 5.2.17 page 124
@@ -1120,10 +1144,11 @@ class SmppSms extends SmppPdu
 	 * @param string $validityPeriod (optional)
 	 * @param integer $smDefaultMsgId (optional)
 	 * @param integer $replaceIfPresentFlag (optional)
+	 * @param UDHI $udhi (optional)	 
 	 */
 	public function __construct($id, $status, $sequence, $body, $service_type, SmppAddress $source, SmppAddress $destination, 
 		$esmClass, $protocolId, $priorityFlag, $registeredDelivery, $dataCoding, $message, $tags, 
-		$scheduleDeliveryTime=null, $validityPeriod=null, $smDefaultMsgId=null, $replaceIfPresentFlag=null)
+		$scheduleDeliveryTime=null, $validityPeriod=null, $smDefaultMsgId=null, $replaceIfPresentFlag=null, $udhi=null)
 	{
 		parent::__construct($id, $status, $sequence, $body);
 		$this->service_type = $service_type;
@@ -1140,6 +1165,7 @@ class SmppSms extends SmppPdu
 		$this->validityPeriod = $validityPeriod;
 		$this->smDefaultMsgId = $smDefaultMsgId;
 		$this->replaceIfPresentFlag = $replaceIfPresentFlag;
+		$this->udhi = $udhi;		
 	}
 		
 }
