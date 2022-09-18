@@ -917,8 +917,8 @@ class SMPP
 	const REG_DELIVERY_SMSC_FAILED = 0x02;
 	const REG_DELIVERY_SME_D_ACK = 0x04;
 	const REG_DELIVERY_SME_U_ACK = 0x08;
-	const REG_DELIVERY_SME_BOTH = 0x10;
-	const REG_DELIVERY_IDN = 0x16; // Intermediate notification
+	const REG_DELIVERY_SME_BOTH = 0x0C;
+	const REG_DELIVERY_IDN = 0x10; // Intermediate notification
 	
 	// SMPP v3.4 - 5.2.18 page 125
 	const REPLACE_NO = 0x00;
